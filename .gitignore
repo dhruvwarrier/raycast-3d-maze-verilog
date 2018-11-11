@@ -1,0 +1,10 @@
+.qws
+.qpf
+.txt
+.bak
+db/
+devkits/
+work/
+simulation/
+output_files/
+incremental_db/
