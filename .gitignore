@@ -1,7 +1,7 @@
-.qws
-raycast-3d-maze-verilog.qpf
-.txt
-.bak
+*.qws
+*.qpf
+*.txt
+*.bak
 db/
 devkits/
 work/
