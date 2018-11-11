@@ -30,6 +30,8 @@ module find_wall_intersection_horiz
 	// if either reached_wall or reached_maze_bounds, start at the beginning and wait for begin_calc again
 	wire reached_wall, reached_maze_bounds;
 	
+	// ------------------------------------ outputs to higher-level module --------------------------------------
+	
 	// wall_found is always reached_wall, if no wall is reached then end_calc is high but wall_found is 0
 	assign wall_found = reached_wall;
 	
@@ -55,11 +57,7 @@ module find_wall_intersection_horiz
 		
 		.find_first_intersection(find_first_intersection),
 		.find_offset(find_offset),
-		.find_next_intersection(find_next_intersection),
-		
-		// --------------------------------- outputs to the higher-level module --------------------------------------
-		
-		.wall_found(wall_found)
+		.find_next_intersection(find_next_intersection)
 	
 	);
 	
@@ -95,3 +93,41 @@ module find_wall_intersection_horiz
 	);
 
 endmodule
+
+module control(input clock, resetn, begin_calc,
+					found_first_intersection, found_XY_offset, reached_wall, reached_maze_bounds,
+					output find_first_intersection, find_offset, find_next_intersection);
+		
+		reg [1:0] current_state, next_state;
+		
+		localparam S_WAIT = 2'd0,
+					  S_FIND_FIRST = 2'd1,
+					  S_FIND_OFFSET = 2'd2,
+					  S_FIND_NEXT = 2'd3; // the datapath computes the next intersection and checks whether a wall exists there
+		
+		// ----------------------------------------- state table  ------------------------------------------------
+		
+		always @(*)
+		begin: state_table
+		
+			case(current_state)
+				S_WAIT: next_state = begin_calc ? S_FIND_FIRST : S_WAIT;
+				S_FIND_FIRST: next_state = found_first_intersection ? S_FIND_OFFSET : S_FIND_FIRST;
+				S_FIND_OFFSET: next_state = found_XY_offset ? S_FIND_NEXT : S_FIND_OFFSET;
+				S_FIND_NEXT: next_state = (reached_wall || reached_maze_bounds) ? S_WAIT : S_FIND_NEXT;
+				default: next_state = S_WAIT;
+				
+		end // state_table
+		
+		// ------------------------------------- current state registers  -------------------------------------------
+		
+		always @(posedge clock)
+		begin: state_FFs
+			if (!resetn)
+				current_state <= S_WAIT;
+			else
+				current_state <= next_state; // at each clock cycle, move to the next computed state
+		end // state_FFs
+			
+endmodule
+					
