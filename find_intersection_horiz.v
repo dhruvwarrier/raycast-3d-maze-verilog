@@ -183,9 +183,9 @@ module datapath(input clock, resetn,
 		else begin
 			if (find_first_intersection) begin
 				if (alpha >= 0 && alpha < 180)
-					A_y <= $floor(playerX / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
+					A_y <= $floor(playerY / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
 				else if (alpha >= 180 && alpha < 360)
-					A_y <= $floor(playerX / 64) * 64 + 64; // add 64 to make A_y the Y position of the next grid block
+					A_y <= $floor(playerY / 64) * 64 + 64; // add 64 to make A_y the Y position of the next grid block
 				
 				// find A_x by line equation, here tan_alpha is the slope of the ray
 				A_x <= playerX + (playerY - A_y)/tan_alpha;
