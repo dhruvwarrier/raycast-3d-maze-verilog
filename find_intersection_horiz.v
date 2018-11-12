@@ -155,7 +155,55 @@ module datapath(input clock, resetn,
 					 input [11:0] playerX, playerY, alpha,
 					 output reg [11:0] currentX, currentY,
 					 output reg reached_wall, reached_maze_bounds);
-
 	
+	// A_x, A_y are the coordinates of the first intersection
+	// X_a, Y_a are the offsets used to calculate the next intersection
+	// C_x, C_y is the current X and Y of the ray
+	reg [11:0] A_x, A_y, X_a, Y_a, C_x, C_y;
+	
+	// ---------------------------------------- sin, cos, tan LUTs  --------------------------------------------------
+	
+	wire [15:0] tan_alpha;
+	
+	tan_LUT lookup_TAN_value(.angle(alpha),.ratio(tan_alpha));
+	
+	// ---------------------------------------- datapath output table  ------------------------------------------------
+	
+	always @(posedge clock)
+	begin
+	
+		if (!resetn) begin
+			A_x <= 12'b0;
+			A_y <= 12'b0;
+			X_a <= 12'b0;
+			Y_a <= 12'b0;
+			C_x <= 12'b0;
+			C_y <= 12'b0;
+		end
+		else begin
+			if (find_first_intersection) begin
+				if (alpha >= 0 && alpha < 180)
+					A_y <= $floor(playerX / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
+				else if (alpha >= 180 && alpha < 360)
+					A_y <= $floor(playerX / 64) * 64 + 64; // add 64 to make A_y the Y position of the next grid block
+				
+				// find A_x by line equation, here tan_alpha is the slope of the ray
+				A_x <= playerX + (playerY - A_y)/tan_alpha;
+				
+				// must check if these generated A_x and A_y are out of bounds
+			end
+			
+			if (find_offset) begin
+				if (alpha >= 0 && alpha < 180)
+					Y_a <= -64; // subtract 1 to make A part of the grid block above the grid line
+				else if (alpha >= 180 && alpha < 360)
+					Y_a <= 64;
+			
+				X_a <= Y_a / tan_alpha;
+			end
+			
+		end
+	
+	end
 					 
 endmodule
