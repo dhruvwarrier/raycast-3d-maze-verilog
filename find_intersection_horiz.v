@@ -12,6 +12,9 @@ module find_wall_intersection_horiz
 		output end_calc									// calculation has ended, whether wall found or not
 	);
 	
+	// tells the datapath to reset values in preparation for calculation
+	wire reset_datapath;
+	
 	// tells the datapath to calculate the first intersection of the ray with the grid
 	wire find_first_intersection;
 	
@@ -50,6 +53,7 @@ module find_wall_intersection_horiz
 		
 		// ------------------------------------ outputs to the datapath --------------------------------------
 		
+		.reset_datapath(reset_datapath),
 		.find_first_intersection(find_first_intersection),
 		.find_offset(find_offset),
 		.find_next_intersection(find_next_intersection),
@@ -64,6 +68,7 @@ module find_wall_intersection_horiz
 		
 		// ------------------------------------ control signals from FSM --------------------------------------
 		
+		.reset_datapath(reset_datapath),
 		.find_first_intersection(find_first_intersection),
 		.find_offset(find_offset),
 		.find_next_intersection(find_next_intersection),
@@ -91,7 +96,7 @@ endmodule
 
 module control(input clock, resetn, begin_calc,
 					reached_wall, reached_maze_bounds,
-					output reg find_first_intersection, find_offset, find_next_intersection, check_for_wall);
+					output reg reset_datapath, find_first_intersection, find_offset, find_next_intersection, check_for_wall);
 		
 	reg [2:0] current_state, next_state;
 	
@@ -124,12 +129,14 @@ module control(input clock, resetn, begin_calc,
 	begin: control_signals
 
 		// prevent latching by assuming all control signals to be 0 at the beginning
+		reset_datapath = 1'b0;
 		find_first_intersection = 1'b0;
 		find_offset = 1'b0;
 		find_next_intersection = 1'b0;
 		check_for_wall = 1'b0;
 		
 		case(current_state)
+			S_WAIT: reset_datapath = 1'b1;
 			S_FIND_FIRST: find_first_intersection = 1'b1;
 			S_FIND_OFFSET: find_offset = 1'b1;
 			S_FIND_NEXT: find_next_intersection = 1'b1;
@@ -151,7 +158,7 @@ module control(input clock, resetn, begin_calc,
 endmodule
 
 module datapath(input clock, resetn,
-					 find_first_intersection, find_offset, find_next_intersection, check_for_wall,
+					 reset_datapath, find_first_intersection, find_offset, find_next_intersection, check_for_wall,
 					 input [11:0] playerX, playerY, alpha,
 					 output reg [11:0] currentX, currentY,
 					 output reg reached_wall, reached_maze_bounds);
@@ -160,6 +167,10 @@ module datapath(input clock, resetn,
 	// X_a, Y_a are the offsets used to calculate the next intersection
 	// C_x, C_y is the current X and Y of the ray
 	reg [11:0] A_x, A_y, X_a, Y_a, C_x, C_y;
+	
+	// S_FIND_NEXT sets currentX and currentY to the first intersection for the first iteration, and checks offset
+	// intersections after
+	reg checked_first_intersection;
 	
 	// ---------------------------------------- sin, cos, tan LUTs  --------------------------------------------------
 	
@@ -181,6 +192,10 @@ module datapath(input clock, resetn,
 			C_y <= 12'b0;
 		end
 		else begin
+		
+			if (reset_datapath)
+				checked_first_intersection = 1'b0;
+		
 			if (find_first_intersection) begin
 				if (alpha >= 0 && alpha < 180)
 					A_y <= $floor(playerY / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
@@ -195,11 +210,25 @@ module datapath(input clock, resetn,
 			
 			if (find_offset) begin
 				if (alpha >= 0 && alpha < 180)
-					Y_a <= -64; // subtract 1 to make A part of the grid block above the grid line
+					Y_a <= -64;
 				else if (alpha >= 180 && alpha < 360)
 					Y_a <= 64;
 			
 				X_a <= Y_a / tan_alpha;
+			end
+			
+			if (find_next_intersection) begin
+			
+				// set next intersection to first intersection in the first iteration so that it is also checked for a wall
+				if (!checked_first_intersection) begin
+					C_x <= A_x;
+					C_y <= A_y;
+					checked_first_intersection = 1'b1;
+				end else begin
+					// add the offset to current coordinate to find next coordinate
+					C_x <= C_x + X_a;
+					C_y <= C_y + Y_a;
+				end
 			end
 			
 		end
