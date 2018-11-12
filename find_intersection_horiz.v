@@ -278,5 +278,21 @@ module datapath(input clock, resetn,
 	end
 	
 	// ------------------------------------------- output registers --------------------------------------------------
+	
+	always @(posedge clock)
+	begin
+		if (!resetn)
+			currentX <= 0;
+		else
+			currentX <= C_x; // C_x is registered to keep it stable for 1 clock cycle
+	end
+	
+	always @(posedge clock)
+	begin
+		if (!resetn)
+			currentY <= 0;
+		else
+			currentY <= C_y; // C_y is registered to keep it stable for 1 clock cycle
+	end
 					 
 endmodule
