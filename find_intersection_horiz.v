@@ -21,11 +21,8 @@ module find_wall_intersection_horiz
 	// tells the datapath to find the next intersection of the ray with the grid
 	wire find_next_intersection;
 	
-	// tells the control that the first intersection was found
-	wire found_first_intersection;
-	
-	// tells the control the X and Y offsets were found
-	wire found_XY_offset;
+	// tells the datapath to check whether a wall exists at this grid coordinate by communicating with the grid register
+	wire check_for_wall;
 	
 	// if either reached_wall or reached_maze_bounds, start at the beginning and wait for begin_calc again
 	wire reached_wall, reached_maze_bounds;
@@ -47,8 +44,6 @@ module find_wall_intersection_horiz
 		
 		.begin_calc(begin_calc),
 		
-		.found_first_intersection(found_first_intersection),
-		.found_XY_offset(found_XY_offset),
 		// if either reached_wall or reached_maze_bounds, go back to beginning
 		.reached_wall(reached_wall),
 		.reached_maze_bounds(reached_maze_bounds),
@@ -57,7 +52,8 @@ module find_wall_intersection_horiz
 		
 		.find_first_intersection(find_first_intersection),
 		.find_offset(find_offset),
-		.find_next_intersection(find_next_intersection)
+		.find_next_intersection(find_next_intersection),
+		.check_for_wall(check_for_wall)
 	
 	);
 	
@@ -71,6 +67,7 @@ module find_wall_intersection_horiz
 		.find_first_intersection(find_first_intersection),
 		.find_offset(find_offset),
 		.find_next_intersection(find_next_intersection),
+		.check_for_wall(check_for_wall),
 		
 		// ------------------------------------ data input and output --------------------------------------
 		
@@ -83,10 +80,8 @@ module find_wall_intersection_horiz
 		.currentY(wallY),
 		
 		// ----------------------------------------- outputs to FSM -----------------------------------------
-		// ----------------------- inform the FSM when calculations are complete --------------------------------
+		// ------------------- inform the FSM if a wall or maze bounds have been reached ----------------------------
 		
-		.found_first_intersection(found_first_intersection),
-		.found_XY_offset(found_XY_offset),
 		.reached_wall(reached_wall),
 		.reached_maze_bounds(reached_maze_bounds)
 	
@@ -95,39 +90,72 @@ module find_wall_intersection_horiz
 endmodule
 
 module control(input clock, resetn, begin_calc,
-					found_first_intersection, found_XY_offset, reached_wall, reached_maze_bounds,
-					output find_first_intersection, find_offset, find_next_intersection);
+					reached_wall, reached_maze_bounds,
+					output reg find_first_intersection, find_offset, find_next_intersection, check_for_wall);
 		
-		reg [1:0] current_state, next_state;
-		
-		localparam S_WAIT = 2'd0,
-					  S_FIND_FIRST = 2'd1,
-					  S_FIND_OFFSET = 2'd2,
-					  S_FIND_NEXT = 2'd3; // the datapath computes the next intersection and checks whether a wall exists there
-		
-		// ----------------------------------------- state table  ------------------------------------------------
-		
-		always @(*)
-		begin: state_table
-		
-			case(current_state)
-				S_WAIT: next_state = begin_calc ? S_FIND_FIRST : S_WAIT;
-				S_FIND_FIRST: next_state = found_first_intersection ? S_FIND_OFFSET : S_FIND_FIRST;
-				S_FIND_OFFSET: next_state = found_XY_offset ? S_FIND_NEXT : S_FIND_OFFSET;
-				S_FIND_NEXT: next_state = (reached_wall || reached_maze_bounds) ? S_WAIT : S_FIND_NEXT;
-				default: next_state = S_WAIT;
+	reg [2:0] current_state, next_state;
+	
+	localparam S_WAIT = 3'd0,
+				  S_FIND_FIRST = 3'd1,
+				  S_FIND_OFFSET = 3'd2,
+				  S_FIND_NEXT = 3'd3,
+				  S_CHECK_WALL = 3'd4;
+				  
+	// ----------------------------------------- state table  ------------------------------------------------
+	
+	always @(*)
+	begin: state_table
+	
+		case(current_state)
+			S_WAIT: next_state = begin_calc ? S_FIND_FIRST : S_WAIT;
+			S_FIND_FIRST: next_state = S_FIND_OFFSET; // provide a state to find the first intersection
+			S_FIND_OFFSET: next_state = S_FIND_NEXT; // provide a state to find the X and Y offsets
+			S_FIND_NEXT: next_state = S_CHECK_WALL; // provide a state to find the next intersection
+			// check with the grid register for a wall or maze bounds, else go back to S_FIND_NEXT
+			S_CHECK_WALL: next_state = (reached_wall || reached_maze_bounds) ? S_WAIT : S_FIND_NEXT;
+			default: next_state = S_WAIT;
+		endcase
 				
-		end // state_table
+	end // state_table
 		
-		// ------------------------------------- current state registers  -------------------------------------------
+	// ------------------------------- output logic i.e. control signal logic  -------------------------------------
+	
+	always @(*)
+	begin: control_signals
+
+		// prevent latching by assuming all control signals to be 0 at the beginning
+		find_first_intersection = 1'b0;
+		find_offset = 1'b0;
+		find_next_intersection = 1'b0;
+		check_for_wall = 1'b0;
 		
-		always @(posedge clock)
-		begin: state_FFs
-			if (!resetn)
-				current_state <= S_WAIT;
-			else
-				current_state <= next_state; // at each clock cycle, move to the next computed state
-		end // state_FFs
+		case(current_state)
+			S_FIND_FIRST: find_first_intersection = 1'b1;
+			S_FIND_OFFSET: find_offset = 1'b1;
+			S_FIND_NEXT: find_next_intersection = 1'b1;
+			S_CHECK_WALL: check_for_wall = 1'b1;
+		endcase
+		
+	end // control_signals
+		
+	// ------------------------------------- current state register  -------------------------------------------
+	
+	always @(posedge clock)
+	begin: state_FFs
+		if (!resetn)
+			current_state <= S_WAIT;
+		else
+			current_state <= next_state; // at each clock cycle, move to the next computed state
+	end // state_FFs
 			
 endmodule
-					
+
+module datapath(input clock, resetn,
+					 find_first_intersection, find_offset, find_next_intersection, check_for_wall,
+					 input [11:0] playerX, playerY, alpha,
+					 output reg [11:0] currentX, currentY,
+					 output reg reached_wall, reached_maze_bounds);
+
+	
+					 
+endmodule
