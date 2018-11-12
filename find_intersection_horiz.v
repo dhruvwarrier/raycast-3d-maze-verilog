@@ -24,6 +24,9 @@ module find_wall_intersection_horiz
 	// tells the datapath to find the next intersection of the ray with the grid
 	wire find_next_intersection;
 	
+	// tells the datapath to convert an X, Y intersection to a grid coordinate
+	wire convert_to_grid_coords;
+	
 	// tells the datapath to check whether a wall exists at this grid coordinate by communicating with the grid register
 	wire check_for_wall;
 	
@@ -57,6 +60,7 @@ module find_wall_intersection_horiz
 		.find_first_intersection(find_first_intersection),
 		.find_offset(find_offset),
 		.find_next_intersection(find_next_intersection),
+		.convert_to_grid_coords(convert_to_grid_coords),
 		.check_for_wall(check_for_wall)
 	
 	);
@@ -72,6 +76,7 @@ module find_wall_intersection_horiz
 		.find_first_intersection(find_first_intersection),
 		.find_offset(find_offset),
 		.find_next_intersection(find_next_intersection),
+		.convert_to_grid_coords(convert_to_grid_coords),
 		.check_for_wall(check_for_wall),
 		
 		// ------------------------------------ data input and output --------------------------------------
@@ -96,7 +101,8 @@ endmodule
 
 module control(input clock, resetn, begin_calc,
 					reached_wall, reached_maze_bounds,
-					output reg reset_datapath, find_first_intersection, find_offset, find_next_intersection, check_for_wall);
+					output reg reset_datapath, find_first_intersection, find_offset, find_next_intersection, 
+					convert_to_grid_coords, check_for_wall);
 		
 	reg [2:0] current_state, next_state;
 	
@@ -104,7 +110,8 @@ module control(input clock, resetn, begin_calc,
 				  S_FIND_FIRST = 3'd1,
 				  S_FIND_OFFSET = 3'd2,
 				  S_FIND_NEXT = 3'd3,
-				  S_CHECK_WALL = 3'd4;
+				  S_CONVERT_TO_GRID = 3'd4,
+				  S_CHECK_WALL = 3'd5;
 				  
 	// ----------------------------------------- state table  ------------------------------------------------
 	
@@ -115,9 +122,10 @@ module control(input clock, resetn, begin_calc,
 			S_WAIT: next_state = begin_calc ? S_FIND_FIRST : S_WAIT;
 			S_FIND_FIRST: next_state = S_FIND_OFFSET; // provide a state to find the first intersection
 			S_FIND_OFFSET: next_state = S_FIND_NEXT; // provide a state to find the X and Y offsets
-			S_FIND_NEXT: next_state = S_CHECK_WALL; // provide a state to find the next intersection
-			// check with the grid register for a wall or maze bounds, else go back to S_FIND_NEXT
-			S_CHECK_WALL: next_state = (reached_wall || reached_maze_bounds) ? S_WAIT : S_FIND_NEXT;
+			S_FIND_NEXT: next_state = S_CONVERT_TO_GRID; // provide a state to find the next intersection
+			S_CONVERT_TO_GRID: next_state = reached_maze_bounds ? S_WAIT : S_CHECK_FOR_WALL; // provide a state to compute grid coordinates of this intersection
+			// check with the grid register for a wall, if found go back to S_FIND_NEXT
+			S_CHECK_WALL: next_state = reached_wall ? S_WAIT : S_FIND_NEXT;
 			default: next_state = S_WAIT;
 		endcase
 				
@@ -133,6 +141,7 @@ module control(input clock, resetn, begin_calc,
 		find_first_intersection = 1'b0;
 		find_offset = 1'b0;
 		find_next_intersection = 1'b0;
+		convert_to_grid_coords = 1'b0;
 		check_for_wall = 1'b0;
 		
 		case(current_state)
@@ -140,6 +149,7 @@ module control(input clock, resetn, begin_calc,
 			S_FIND_FIRST: find_first_intersection = 1'b1;
 			S_FIND_OFFSET: find_offset = 1'b1;
 			S_FIND_NEXT: find_next_intersection = 1'b1;
+			S_CONVERT_TO_GRID: convert_to_grid_coords = 1'b1;
 			S_CHECK_WALL: check_for_wall = 1'b1;
 		endcase
 		
@@ -158,7 +168,8 @@ module control(input clock, resetn, begin_calc,
 endmodule
 
 module datapath(input clock, resetn,
-					 reset_datapath, find_first_intersection, find_offset, find_next_intersection, check_for_wall,
+					 reset_datapath, find_first_intersection, find_offset, find_next_intersection, 
+					 convert_to_grid_coords, check_for_wall,
 					 input [11:0] playerX, playerY, alpha,
 					 output reg [11:0] currentX, currentY,
 					 output reg reached_wall, reached_maze_bounds);
@@ -178,6 +189,21 @@ module datapath(input clock, resetn,
 	
 	tan_LUT lookup_TAN_value(.angle(alpha),.ratio(tan_alpha));
 	
+	// ----------------------------------- communication with grid RAM block ------------------------------------------
+	
+	// 12-bit grid address to address 4096 possible grid locations (0-63, 0-63)
+	reg [11:0] grid_address;
+	
+	// high if a wall exists at this grid, else low
+	wire grid_out;
+	
+	// how do we create a .mif file to initialize RAM block with level data?
+	
+	//ram4096x1 grid();
+	
+	// temporary solution is a lookup table that returns level data
+	grid2D level_data(.address(grid_address),.grid_out(grid_out));
+	
 	// ---------------------------------------- datapath output table  ------------------------------------------------
 	
 	always @(posedge clock)
@@ -193,8 +219,10 @@ module datapath(input clock, resetn,
 		end
 		else begin
 		
-			if (reset_datapath)
-				checked_first_intersection = 1'b0;
+			if (reset_datapath) begin
+				checked_first_intersection <= 1'b0;
+				reached_maze_bounds <= 1'b0;
+			end
 		
 			if (find_first_intersection) begin
 				if (alpha >= 0 && alpha < 180)
@@ -223,7 +251,7 @@ module datapath(input clock, resetn,
 				if (!checked_first_intersection) begin
 					C_x <= A_x;
 					C_y <= A_y;
-					checked_first_intersection = 1'b1;
+					checked_first_intersection <= 1'b1;
 				end else begin
 					// add the offset to current coordinate to find next coordinate
 					C_x <= C_x + X_a;
@@ -231,8 +259,24 @@ module datapath(input clock, resetn,
 				end
 			end
 			
+			if (convert_to_grid_coords) begin
+			
+				// first check if C_x and C_y are out of bounds. if out of bounds, quit here and go back to S_WAIT
+				if (C_x >= 4096 || C_y >= 4096)
+					reached_maze_bounds <= 1'b1;
+				else
+					grid_address <= 64 * $floor(C_y / 64) + $floor(C_x / 64); // flatten a 2D grid address into a 1D address
+			end
+			
+			if (check_for_wall) begin
+				// by this state, the RAM should have responded with the data at the grid_address
+				reached_wall <= grid_out;
+			end
+			
 		end
 	
 	end
+	
+	// ------------------------------------------- output registers --------------------------------------------------
 					 
 endmodule
