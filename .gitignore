@@ -2,6 +2,7 @@
 *.qpf
 *.txt
 *.bak
+*.wlf
 db/
 devkits/
 work/
