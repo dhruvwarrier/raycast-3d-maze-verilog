@@ -2,12 +2,12 @@
 
 module find_wall_intersection_horiz
 	(
-		input [11:0] playerX, playerY, 				// player's current X and Y position
-		input [11:0] alpha, 								// angle of ray currently being cast
+		input signed [11:0] playerX, playerY, 		// player's current X and Y position
+		input signed [11:0] alpha, 					// angle of ray currently being cast
 		input clock, 										// On board clock, 50 MHz for the DE1_SoC
 		input resetn, 										// active-low, resets the FSM and clears the datapath registers
 		input begin_calc,									// begins calculation of wall intersection
-		output [11:0] wallX, wallY,					// calculated wall X and Y for this ray
+		output signed [11:0] wallX, wallY,			// calculated wall X and Y for this ray
 		output wall_found,								// high if wall is found, low if not
 		output end_calc									// calculation has ended, whether wall found or not
 	);
@@ -170,14 +170,14 @@ endmodule
 module datapath(input clock, resetn,
 					 reset_datapath, find_first_intersection, find_offset, find_next_intersection, 
 					 convert_to_grid_coords, check_for_wall,
-					 input [11:0] playerX, playerY, alpha,
-					 output reg [11:0] currentX, currentY,
+					 input signed [11:0] playerX, playerY, alpha,
+					 output reg signed [11:0] currentX, currentY,
 					 output reg reached_wall, reached_maze_bounds);
 	
 	// A_x, A_y are the coordinates of the first intersection
 	// X_a, Y_a are the offsets used to calculate the next intersection
 	// C_x, C_y is the current X and Y of the ray
-	reg [11:0] A_x, A_y, X_a, Y_a, C_x, C_y;
+	reg signed [11:0] A_x, A_y, X_a, Y_a, C_x, C_y;
 	
 	// S_FIND_NEXT sets currentX and currentY to the first intersection for the first iteration, and checks offset
 	// intersections after
@@ -185,7 +185,7 @@ module datapath(input clock, resetn,
 	
 	// ---------------------------------------- sin, cos, tan LUTs  --------------------------------------------------
 	
-	wire [15:0] tan_alpha;
+	wire signed [23:0] tan_alpha;
 	
 	tan_LUT lookup_TAN_value(.angle(alpha),.ratio(tan_alpha));
 	
@@ -202,7 +202,7 @@ module datapath(input clock, resetn,
 	//ram4096x1 grid();
 	
 	// temporary solution is a lookup table that returns level data
-	grid2D level_data(.address(grid_address),.grid_out(grid_out));
+	grid2D level_data(.grid_address(grid_address),.grid_out(grid_out));
 	
 	// ---------------------------------------- datapath output table  ------------------------------------------------
 	
@@ -262,7 +262,7 @@ module datapath(input clock, resetn,
 			if (convert_to_grid_coords) begin
 			
 				// first check if C_x and C_y are out of bounds. if out of bounds, quit here and go back to S_WAIT
-				if (C_x >= 4096 || C_y >= 4096)
+				if (C_x >= 4096 || C_y >= 4096 || C_x <= 0 || C_y <= 0)
 					reached_maze_bounds <= 1'b1;
 				else
 					grid_address <= 64 * $floor(C_y / 64) + $floor(C_x / 64); // flatten a 2D grid address into a 1D address
