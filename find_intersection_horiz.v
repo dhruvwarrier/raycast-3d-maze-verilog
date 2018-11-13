@@ -123,7 +123,7 @@ module control(input clock, resetn, begin_calc,
 			S_FIND_FIRST: next_state = S_FIND_OFFSET; // provide a state to find the first intersection
 			S_FIND_OFFSET: next_state = S_FIND_NEXT; // provide a state to find the X and Y offsets
 			S_FIND_NEXT: next_state = S_CONVERT_TO_GRID; // provide a state to find the next intersection
-			S_CONVERT_TO_GRID: next_state = reached_maze_bounds ? S_WAIT : S_CHECK_FOR_WALL; // provide a state to compute grid coordinates of this intersection
+			S_CONVERT_TO_GRID: next_state = reached_maze_bounds ? S_WAIT : S_CHECK_WALL; // provide a state to compute grid coordinates of this intersection
 			// check with the grid register for a wall, if found go back to S_FIND_NEXT
 			S_CHECK_WALL: next_state = reached_wall ? S_WAIT : S_FIND_NEXT;
 			default: next_state = S_WAIT;

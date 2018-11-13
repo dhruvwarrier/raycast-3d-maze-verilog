@@ -1,6 +1,6 @@
 `timescale 1ns/1ns
 
-module grid2D(input [11:0] grid_address, output grid_out);
+module grid2D(input [11:0] grid_address, output reg grid_out);
 
 	always @(*)
 	begin
