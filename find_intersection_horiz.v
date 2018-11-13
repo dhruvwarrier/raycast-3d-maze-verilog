@@ -47,7 +47,7 @@ module find_wall_intersection_horiz
 	// high for one cycle when either wall is reached or bounds are reached
 	assign end_calc = reached_wall || reached_maze_bounds;
 
-	control FSM(
+	control_find_intersection FSM(
 	
 		.clock(clock),
 		.resetn(resetn),
@@ -73,7 +73,7 @@ module find_wall_intersection_horiz
 	
 	);
 	
-	datapath position_manip(
+	datapath_find_intersection_horiz position_manip(
 	
 		.clock(clock),
 		.resetn(resetn),
@@ -109,7 +109,7 @@ module find_wall_intersection_horiz
 
 endmodule
 
-module control(input clock, resetn, begin_calc,
+module control_find_intersection (input clock, resetn, begin_calc,
 					reached_wall, reached_maze_bounds,
 					output reg reset_datapath, find_first_intersection_0, find_first_intersection_1,
 					find_offset_0, find_offset_1, find_next_intersection, 
@@ -186,7 +186,7 @@ module control(input clock, resetn, begin_calc,
 			
 endmodule
 
-module datapath(input clock, resetn,
+module datapath_find_intersection_horiz (input clock, resetn,
 					 reset_datapath, find_first_intersection_0, find_first_intersection_1,
 					 find_offset_0, find_offset_1, find_next_intersection, 
 					 convert_to_grid_coords, check_for_wall,
@@ -245,9 +245,9 @@ module datapath(input clock, resetn,
 			end
 		
 			if (find_first_intersection_0) begin
-				if (alpha >= 0 && alpha < 180)
+				if (alpha >= 0 && alpha < 180) // ray facing up
 					A_y <= $floor(playerY / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
-				else if (alpha >= 180 && alpha < 360)
+				else if (alpha >= 180 && alpha < 360) // ray facing down
 					A_y <= $floor(playerY / 64) * 64 + 64; // add 64 to make A_y the Y position of the next grid block
 			end
 			
