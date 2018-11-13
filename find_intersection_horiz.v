@@ -15,11 +15,17 @@ module find_wall_intersection_horiz
 	// tells the datapath to reset values in preparation for calculation
 	wire reset_datapath;
 	
-	// tells the datapath to calculate the first intersection of the ray with the grid
-	wire find_first_intersection;
+	// tells the datapath to calculate the first intersection of the ray with the grid, cycle 0
+	wire find_first_intersection_0;
 	
-	// tells the datapath to calculate the X and Y offset to find new intersections of the ray with the grid
-	wire find_offset;
+	// tells the datapath to calculate the first intersection of the ray with the grid, cycle 1
+	wire find_first_intersection_1;
+	
+	// tells the datapath to calculate the X and Y offset to find new intersections of the ray with the grid, cycle 0
+	wire find_offset_0;
+	
+	// tells the datapath to calculate the X and Y offset to find new intersections of the ray with the grid, cycle 1
+	wire find_offset_1;
 	
 	// tells the datapath to find the next intersection of the ray with the grid
 	wire find_next_intersection;
@@ -57,8 +63,10 @@ module find_wall_intersection_horiz
 		// ------------------------------------ outputs to the datapath --------------------------------------
 		
 		.reset_datapath(reset_datapath),
-		.find_first_intersection(find_first_intersection),
-		.find_offset(find_offset),
+		.find_first_intersection_0(find_first_intersection_0),
+		.find_first_intersection_1(find_first_intersection_1),
+		.find_offset_0(find_offset_0),
+		.find_offset_1(find_offset_1),
 		.find_next_intersection(find_next_intersection),
 		.convert_to_grid_coords(convert_to_grid_coords),
 		.check_for_wall(check_for_wall)
@@ -73,8 +81,10 @@ module find_wall_intersection_horiz
 		// ------------------------------------ control signals from FSM --------------------------------------
 		
 		.reset_datapath(reset_datapath),
-		.find_first_intersection(find_first_intersection),
-		.find_offset(find_offset),
+		.find_first_intersection_0(find_first_intersection_0),
+		.find_first_intersection_1(find_first_intersection_1),
+		.find_offset_0(find_offset_0),
+		.find_offset_1(find_offset_1),
 		.find_next_intersection(find_next_intersection),
 		.convert_to_grid_coords(convert_to_grid_coords),
 		.check_for_wall(check_for_wall),
@@ -101,17 +111,20 @@ endmodule
 
 module control(input clock, resetn, begin_calc,
 					reached_wall, reached_maze_bounds,
-					output reg reset_datapath, find_first_intersection, find_offset, find_next_intersection, 
+					output reg reset_datapath, find_first_intersection_0, find_first_intersection_1,
+					find_offset_0, find_offset_1, find_next_intersection, 
 					convert_to_grid_coords, check_for_wall);
 		
 	reg [2:0] current_state, next_state;
 	
 	localparam S_WAIT = 3'd0,
-				  S_FIND_FIRST = 3'd1,
-				  S_FIND_OFFSET = 3'd2,
-				  S_FIND_NEXT = 3'd3,
-				  S_CONVERT_TO_GRID = 3'd4,
-				  S_CHECK_WALL = 3'd5;
+				  S_FIND_FIRST_0 = 3'd1,
+				  S_FIND_FIRST_1 = 3'd2,
+				  S_FIND_OFFSET_0 = 3'd3,
+				  S_FIND_OFFSET_1 = 3'd4,
+				  S_FIND_NEXT = 3'd5,
+				  S_CONVERT_TO_GRID = 3'd6,
+				  S_CHECK_WALL = 3'd7;
 				  
 	// ----------------------------------------- state table  ------------------------------------------------
 	
@@ -119,9 +132,11 @@ module control(input clock, resetn, begin_calc,
 	begin: state_table
 	
 		case(current_state)
-			S_WAIT: next_state = begin_calc ? S_FIND_FIRST : S_WAIT;
-			S_FIND_FIRST: next_state = S_FIND_OFFSET; // provide a state to find the first intersection
-			S_FIND_OFFSET: next_state = S_FIND_NEXT; // provide a state to find the X and Y offsets
+			S_WAIT: next_state = begin_calc ? S_FIND_FIRST_0 : S_WAIT;
+			S_FIND_FIRST_0: next_state = S_FIND_FIRST_1; // provide 2 states to find the first intersection
+			S_FIND_FIRST_1: next_state = S_FIND_OFFSET_0;
+			S_FIND_OFFSET_0: next_state = S_FIND_OFFSET_1; // provide 2 states to find the X and Y offsets
+			S_FIND_OFFSET_1: next_state = S_FIND_NEXT; 
 			S_FIND_NEXT: next_state = S_CONVERT_TO_GRID; // provide a state to find the next intersection
 			S_CONVERT_TO_GRID: next_state = reached_maze_bounds ? S_WAIT : S_CHECK_WALL; // provide a state to compute grid coordinates of this intersection
 			// check with the grid register for a wall, if found go back to S_FIND_NEXT
@@ -138,16 +153,20 @@ module control(input clock, resetn, begin_calc,
 
 		// prevent latching by assuming all control signals to be 0 at the beginning
 		reset_datapath = 1'b0;
-		find_first_intersection = 1'b0;
-		find_offset = 1'b0;
+		find_first_intersection_0 = 1'b0;
+		find_first_intersection_1 = 1'b0;
+		find_offset_0 = 1'b0;
+		find_offset_1 = 1'b0;
 		find_next_intersection = 1'b0;
 		convert_to_grid_coords = 1'b0;
 		check_for_wall = 1'b0;
 		
 		case(current_state)
 			S_WAIT: reset_datapath = 1'b1;
-			S_FIND_FIRST: find_first_intersection = 1'b1;
-			S_FIND_OFFSET: find_offset = 1'b1;
+			S_FIND_FIRST_0: find_first_intersection_0 = 1'b1;
+			S_FIND_FIRST_1: find_first_intersection_1 = 1'b1;
+			S_FIND_OFFSET_0: find_offset_0 = 1'b1;
+			S_FIND_OFFSET_1: find_offset_1 = 1'b1;
 			S_FIND_NEXT: find_next_intersection = 1'b1;
 			S_CONVERT_TO_GRID: convert_to_grid_coords = 1'b1;
 			S_CHECK_WALL: check_for_wall = 1'b1;
@@ -168,7 +187,8 @@ module control(input clock, resetn, begin_calc,
 endmodule
 
 module datapath(input clock, resetn,
-					 reset_datapath, find_first_intersection, find_offset, find_next_intersection, 
+					 reset_datapath, find_first_intersection_0, find_first_intersection_1,
+					 find_offset_0, find_offset_1, find_next_intersection, 
 					 convert_to_grid_coords, check_for_wall,
 					 input signed [11:0] playerX, playerY, alpha,
 					 output reg signed [11:0] currentX, currentY,
@@ -224,26 +244,28 @@ module datapath(input clock, resetn,
 				reached_maze_bounds <= 1'b0;
 			end
 		
-			if (find_first_intersection) begin
+			if (find_first_intersection_0) begin
 				if (alpha >= 0 && alpha < 180)
 					A_y <= $floor(playerY / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
 				else if (alpha >= 180 && alpha < 360)
 					A_y <= $floor(playerY / 64) * 64 + 64; // add 64 to make A_y the Y position of the next grid block
-				
-				// find A_x by line equation, here tan_alpha is the slope of the ray
-				A_x <= playerX + (playerY - A_y)/tan_alpha;
-				
-				// must check if these generated A_x and A_y are out of bounds
 			end
 			
-			if (find_offset) begin
+			if (find_first_intersection_1) begin
+				// find A_x by line equation, here tan_alpha is the slope of the ray
+				// must check if these generated A_x and A_y are out of bounds
+				A_x <= playerX + (playerY - A_y) / tan_alpha;
+			end
+			
+			if (find_offset_0) begin
 				if (alpha >= 0 && alpha < 180)
 					Y_a <= -64;
 				else if (alpha >= 180 && alpha < 360)
 					Y_a <= 64;
-			
-				X_a <= Y_a / tan_alpha;
 			end
+			
+			if (find_offset_1)
+				X_a <= Y_a / tan_alpha; // slope equation
 			
 			if (find_next_intersection) begin
 			
