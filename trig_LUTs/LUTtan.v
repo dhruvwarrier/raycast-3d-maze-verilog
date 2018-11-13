@@ -1,4 +1,4 @@
-module tan_LUT(input [11:0] angle, output reg [23:0] ratio);
+module tan_LUT(input [11:0] angle, output reg signed [23:0] ratio);
 
         always @(*) begin
                 case(angle)
