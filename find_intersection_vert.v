@@ -4,7 +4,7 @@ module find_wall_intersection_vert
 	(
 		input signed [12:0] playerX, playerY, 		// player's current X and Y position
 		input signed [9:0] alpha_X, 					// angle of ray currently being cast in fixed point format 
-		input signed [3:0] alpha_Y,					// alpha_X is the left of the decimal point, alpha_Y is the right
+		input signed [9:0] alpha_Y,					// alpha_X is the left of the decimal point, alpha_Y is the right
 		input clock, 										// On board clock, 50 MHz for the DE1_SoC
 		input resetn, 										// active-low, resets the FSM and clears the datapath registers
 		input begin_calc,									// begins calculation of wall intersection
@@ -117,7 +117,7 @@ module datapath_find_intersection_vert (input clock, resetn,
 					 find_offset_0, find_offset_1, find_next_intersection, 
 					 convert_to_grid_coords, check_for_wall,
 					 input signed [12:0] playerX, playerY,
-					 input signed [9:0] alpha_X, input signed [3:0] alpha_Y,
+					 input signed [9:0] alpha_X, input signed [9:0] alpha_Y,
 					 output reg signed [12:0] currentX, currentY,
 					 output reg reached_wall, reached_maze_bounds);
 	
@@ -135,7 +135,7 @@ module datapath_find_intersection_vert (input clock, resetn,
 	// sin, cos, tan LUTs take fixed points as inputs and give fixed points as outputs
 	
 	wire signed [9:0] tan_alpha_X;
-	wire signed [16:0] tan_alpha_Y;
+	wire signed [17:0] tan_alpha_Y;
 	
 	tan_LUT lookup_TAN_value(.angleX(alpha_X),.angleY(alpha_Y),.ratioX(tan_alpha_X),.ratioY(tan_alpha_Y));
 	
@@ -204,9 +204,9 @@ module datapath_find_intersection_vert (input clock, resetn,
 			end
 		
 			if (find_first_intersection_0) begin
-				if (alpha >= 90 && alpha < 270) // ray facing left
+				if (alpha_X >= 90 && alpha_X < 270) // ray facing left
 					B_x <= $floor(playerX / 64) * 64 - 1; // subtract 1 to make B part of the grid block to the left of the grid line
-				else if ((alpha >= 270 && alpha < 360) || (alpha >= 0 && alpha < 90)) // ray facing right
+				else if ((alpha_X >= 270 && alpha_X < 360) || (alpha_X >= 0 && alpha_X < 90)) // ray facing right
 					B_x <= $floor(playerX / 64) * 64 + 64; // add 64 to make B_x the X position of the next grid block
 			end
 			
@@ -217,9 +217,9 @@ module datapath_find_intersection_vert (input clock, resetn,
 			end
 			
 			if (find_offset_0) begin
-				if (alpha >= 90 && alpha < 270) // ray facing left
+				if (alpha_X >= 90 && alpha_X < 270) // ray facing left
 					X_a <= -64;
-				else if ((alpha >= 270 && alpha < 360) || (alpha >= 0 && alpha < 90)) // ray facing right
+				else if ((alpha_X >= 270 && alpha_X < 360) || (alpha_X >= 0 && alpha_X < 90)) // ray facing right
 					X_a <= 64;
 			end
 			
