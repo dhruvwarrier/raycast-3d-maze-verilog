@@ -1,7 +1,7 @@
 module cos_LUT(input [9:0] angleX, input [9:0] angleY, output reg signed [1:0] ratioX, output reg signed [17:0] ratioY);
 
         always @(*) begin
-                case(angle)
+                case({angleX, angleY})
                         20'b00000000000000000000: begin
                                 ratioX = 2'b01;
                                 ratioY = 18'b000000000000000000;
