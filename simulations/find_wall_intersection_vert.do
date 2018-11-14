@@ -1,10 +1,10 @@
 vlib work
 
-vlog ../find_intersection_horiz.v
+vlog ../find_intersection_vert.v
 vlog ../trig_LUTs/LUTtan.v
 vlog ../level_data.v
 
-vsim datapath_find_intersection_horiz
+vsim datapath_find_intersection_vert
 log {/*}
 add wave {/*}
 
