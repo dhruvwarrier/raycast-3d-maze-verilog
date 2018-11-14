@@ -2,12 +2,13 @@
 
 module find_wall_intersection_horiz
 	(
-		input signed [11:0] playerX, playerY, 		// player's current X and Y position
-		input signed [11:0] alpha, 					// angle of ray currently being cast
+		input signed [12:0] playerX, playerY, 		// player's current X and Y position
+		input signed [9:0] alpha_X, 					// angle of ray currently being cast in fixed point format 
+		input signed [3:0] alpha_Y,					// alpha_X is the left of the decimal point, alpha_Y is the right
 		input clock, 										// On board clock, 50 MHz for the DE1_SoC
 		input resetn, 										// active-low, resets the FSM and clears the datapath registers
 		input begin_calc,									// begins calculation of wall intersection
-		output signed [11:0] wallX, wallY,			// calculated wall X and Y for this ray
+		output signed [12:0] wallX, wallY,			// calculated wall X and Y for this ray
 		output wall_found,								// high if wall is found, low if not
 		output end_calc									// calculation has ended, whether wall found or not
 	);
@@ -93,7 +94,8 @@ module find_wall_intersection_horiz
 		
 		.playerX(playerX),
 		.playerY(playerY),
-		.alpha(alpha),
+		.alpha_X(alpha_X),
+		.alpha_Y(alpha_Y),
 		
 		// when reached_wall is high, currentX = wallX, currentY = wallY
 		.currentX(wallX),
@@ -190,14 +192,15 @@ module datapath_find_intersection_horiz (input clock, resetn,
 					 reset_datapath, find_first_intersection_0, find_first_intersection_1,
 					 find_offset_0, find_offset_1, find_next_intersection, 
 					 convert_to_grid_coords, check_for_wall,
-					 input signed [11:0] playerX, playerY, alpha,
-					 output reg signed [11:0] currentX, currentY,
+					 input signed [12:0] playerX, playerY, 
+					 input signed [9:0] alpha_X, input signed [3:0] alpha_Y,
+					 output reg signed [12:0] currentX, currentY,
 					 output reg reached_wall, reached_maze_bounds);
 	
 	// A_x, A_y are the coordinates of the first intersection
 	// X_a, Y_a are the offsets used to calculate the next intersection
 	// C_x, C_y is the current X and Y of the ray
-	reg signed [11:0] A_x, A_y, X_a, Y_a, C_x, C_y;
+	reg signed [20:0] A_x, A_y, X_a, Y_a, C_x, C_y;
 	
 	// S_FIND_NEXT sets currentX and currentY to the first intersection for the first iteration, and checks offset
 	// intersections after
@@ -205,9 +208,40 @@ module datapath_find_intersection_horiz (input clock, resetn,
 	
 	// ---------------------------------------- sin, cos, tan LUTs  --------------------------------------------------
 	
-	wire signed [23:0] tan_alpha;
+	// sin, cos, tan LUTs take fixed points as inputs and give fixed points as outputs
 	
-	tan_LUT lookup_TAN_value(.angle(alpha),.ratio(tan_alpha));
+	wire signed [9:0] tan_alpha_X;
+	wire signed [16:0] tan_alpha_Y;
+	
+	tan_LUT lookup_TAN_value(.angleX(alpha_X),.angleY(alpha_Y),.ratioX(tan_alpha_X),.ratioY(tan_alpha_Y));
+	
+	// ---------------------------------------- Fixed point divisions  ------------------------------------------------
+	
+	wire signed [20:0] ray_proj_X;
+	
+	int_fixed_point_div_int divider_line_eq (
+	
+		// performs fixed point division: ray_proj_X = (playerY - A_y) / tan(alpha)
+	
+		.int_in(playerY - A_y),
+		.fixed_X(tan_alpha_X),
+		.fixed_Y(tan_alpha_Y),
+		
+		.int_out(ray_proj_X)
+	);
+	
+	wire signed [20:0] offset_proj_X;
+	
+	int_fixed_point_div_int divider_offset (
+	
+		// performs fixed point division: offset_proj_X = Y_a / tan(alpha)
+	
+		.int_in(Y_a),
+		.fixed_X(tan_alpha_X),
+		.fixed_Y(tan_alpha_Y),
+		
+		.int_out(offset_proj_X)
+	);
 	
 	// ----------------------------------- communication with grid RAM block ------------------------------------------
 	
@@ -252,9 +286,9 @@ module datapath_find_intersection_horiz (input clock, resetn,
 			end
 			
 			if (find_first_intersection_1) begin
-				// find A_x by line equation, here tan_alpha is the slope of the ray
+				// find A_x by line equation, look above for calculation of ray_proj_X
 				// must check if these generated A_x and A_y are out of bounds
-				A_x <= playerX + (playerY - A_y) / tan_alpha;
+				A_x <= playerX + ray_proj_X;
 			end
 			
 			if (find_offset_0) begin
@@ -265,7 +299,7 @@ module datapath_find_intersection_horiz (input clock, resetn,
 			end
 			
 			if (find_offset_1)
-				X_a <= Y_a / tan_alpha; // slope equation
+				X_a <= offset_proj_X; // slope equation, look above for calculation of offset_proj_X
 			
 			if (find_next_intersection) begin
 			
