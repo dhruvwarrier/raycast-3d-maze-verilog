@@ -3,6 +3,7 @@ vlib work
 vlog ../find_intersection_vert.v
 vlog ../trig_LUTs/LUTtan.v
 vlog ../level_data.v
+vlog ../fixed_point_arithmetic.v
 
 vsim datapath_find_intersection_vert
 log {/*}
