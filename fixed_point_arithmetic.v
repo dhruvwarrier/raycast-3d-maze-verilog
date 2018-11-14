@@ -19,10 +19,22 @@ module int_fixed_point_div_int
 		input signed [20:0] int_in, 
 		input signed [9:0] fixed_X, 
 		input signed [17:0] fixed_Y, 
-		output signed [20:0] int_out
+		output reg signed [20:0] int_out
 	);
 
-	assign int_out = int_in / fixed_X + $rtoi((int_in / fixed_Y) * 100000);
+	always @(*)
+	begin
+	
+		if (fixed_X == 10'b0 && fixed_Y != 18'b0)
+			int_out <= $rtoi((int_in / fixed_Y) * 100000);
+		else if (fixed_X != 10'b0 && fixed_Y == 18'b0)
+			int_out <= int_in / fixed_X;
+		else if (fixed_X == 10'b0 && fixed_Y == 18'b0)
+			int_out <= 21'b011111111111111111111; // incredibly high positive value
+		else
+			int_out <= int_in / fixed_X + $rtoi((int_in / fixed_Y) * 100000);
+	
+	end 
 
 endmodule
 
@@ -36,11 +48,11 @@ module int_fixed_point_mult_fixed_point
 		input fixed_X,
 		input [2:0] fixed_Y,
 		output [5:0] fixed_X_out,
-		output reg [2:0] fixed_Y_out
+		output [9:0] fixed_Y_out
 	);
 	
-	// coincidence that the integer after the decimal point can be perfectly represented by 3 bits for all input cases
-	// and that we only need 3 d.p. accuracy to perfectly represent all input cases in decimal
+	// assuming here a 3 d.p. accuracy since all multiples of 0.375 can be represnted perfectly by 3 digit integers
+	// on the right
 	assign fixed_X_out = (int_in * fixed_X) + $floor((int_in * fixed_Y) / 1000);
 	assign fixed_Y_out = ((int_in * fixed_Y) / 1000 - $floor((int_in * fixed_Y) / 1000)) * 1000;
 	
