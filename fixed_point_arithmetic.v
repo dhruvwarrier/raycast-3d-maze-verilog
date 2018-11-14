@@ -10,7 +10,7 @@ module int_fixed_point_mult_int
 
 	// here fixed_Y must be the binary representation of the integer to the right of the decimal point
 	// accuracy of fixed point value is assumed to be 5 d.p. so divide by 10^5
-	assign int_out = int_in * fixed_X + $rtoi((int_in * fixed_Y) / 100000);
+	assign int_out = int_in * fixed_X + ((int_in * fixed_Y) / 100000);
 
 endmodule
 
@@ -32,7 +32,7 @@ module int_fixed_point_div_int
 		else if (fixed_X == 10'b0 && fixed_Y == 18'b0)
 			int_out <= 21'b011111111111111111111; // incredibly high positive value
 		else
-			int_out <= int_in / fixed_X + $rtoi((int_in / fixed_Y) * 100000);
+			int_out <= int_in / fixed_X + ((int_in / fixed_Y) * 100000);
 	
 	end 
 
