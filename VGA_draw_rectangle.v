@@ -4,37 +4,36 @@ module VGA_draw_rectangle
 	(
 		input [7:0] X_pos_in,// Initial X position to draw rectangle at
 		input [6:0] Y_pos_in,// Initial Y position to draw rectangle at
-		input [7:0] rect_size,// size of rectangle to draw in Y, X size is 1 mega-pixel (4 pixels at normal resolution)
-		input [2:0] color_in,// color_in usually flows out to color_out unless rect is to be cleared (after high clear_rect), in this case it is 0
-		input clear_rect,		// clear_rect clears the rectangle by drawing a black pixel into every position
-		input plot, 			// plot starts the plotting process
+		input [7:0] rect_size,// size of rectangle to draw in Y. X size is 1 mega-pixel (4 pixels at normal resolution)
+		input [2:0] color_in,// color_in simply flows to color_out, however this can be changed in the future if required
+		input start_plot, 	// starts the plotting process
 		input clock,			// On board clock, 50 MHz for the DE1
 		input resetn, 			// active low, resets the FSM and clears the datapath registers
-		output plot_enable, 	// generated rect_size times to draw a rectangle with size rect_size
-		output [7:0] X, 		// X is position from left, 128 columns
-		output [6:0] Y,		// Y is position from top, 128 rows
+		output plot_enable, 	// generated rect_size times to draw a rectangle with size rect_size, this is wren to frame buffer
+		output end_plot,		// generated when plotting process has ended
+		output [7:0] X, 		// X is position from left, 160 columns
+		output [6:0] Y,		// Y is position from top, 120 rows
 		output [2:0] color_out
 	);
 	
 	// wires that connect FSM to datapath
 	
-	// loads X and Y positions into datapath registers
-	wire load_X, load_Y;
+	// tells the datapath to load rect_size into the size counter
+	wire load_rect_size;
 	
-	// tells the datapth to start computing new positions to draw the square
+	// tells the datapath to start computing new positions to draw the rectangle
 	wire plot_counter_enable;
 	
-	// tells the datapath to start computing new positions to clear the screen
-	wire clear_counter_enable;
-	
-	// tells the FSM that plotting is complete and to start looking for input positions again
+	// tells the FSM that plotting is complete and to go back to S_WAIT
 	wire plot_complete;
 	
-	// tells the FSM that clearing is complete and to start looking for input positions again
-	wire clear_complete;
+	// color_in flows to color_out. Can be changed later if required
+	assign color_out = color_in;
 	
-	// color_in flows to color out unless the screen is being cleared, in which case it is 000 i.e. black
-	assign color_out = (clear_counter_enable) ? 3'b000 : color_in;
+	// high for one cycle when plot is complete. Note that it is emitted before S_WAIT is reached, this could be a problem
+	// in the future since the next begin_calc pulse can complete before we reach S_WAIT, in which case we could be
+	// stuck in S_WAIT forever
+	assign end_plot = plot_complete;
 
 	control FSM(
 	
@@ -42,21 +41,13 @@ module VGA_draw_rectangle
 		.resetn(resetn),
 		
 		// -------------------------------- inputs that affect FSM state -------------------------------------
-		.store_pos(store_pos),
-		.plot(plot),
-		.clear_scr(clear_scr),
+		.start_plot(start_plot),
 		
 		.plot_complete(plot_complete),
-		.clear_complete(clear_complete),
 		
-		// ------------------------------------ outputs to the datapath --------------------------------------
-		
-		// control signals to set position vector
-		.ld_X(load_X),
-		.ld_Y(load_Y),
-		
+		// ------------------------------------ outputs to the datapath --------------------------------------		
+		.load_rect_size(load_rect_size),
 		.plot_counter_enable(plot_counter_enable),
-		.clear_counter_enable(clear_counter_enable),
 		
 		// --------------------------------- plot_enable to the VGA adapter ----------------------------------
 		.plot_enable(plot_enable)
@@ -69,42 +60,36 @@ module VGA_draw_rectangle
 		.resetn(resetn),
 		
 		// ------------------------------------ control signals from FSM --------------------------------------
-		.ld_X(load_X),
-		.ld_Y(load_Y),
+		.load_rect_size(load_rect_size),
 		.plot_counter_enable(plot_counter_enable),
-		.clear_counter_enable(clear_counter_enable),
 		
 		// ------------------------------------ data input and output --------------------------------------
-		.data_in(pos_in),
+		.X_pos_in(X_pos_in),
+		.Y_pos_in(Y_pos_in),
+		.rect_size(rect_size),
 		
-		.data_out_X(X),
-		.data_out_Y(Y),
+		.X_pos_out(X),
+		.X_pos_out(Y),
 		
 		// ----------------------------------------- outputs to FSM -----------------------------------------
-		// ----------------------- inform the FSM that plotting or clearing is complete--------------------------------
 		
 		.plot_complete(plot_complete),
-		.clear_complete(clear_complete)
 	
 	);
 
 endmodule
 
-module control(input clock, resetn, store_pos, plot, clear_scr, plot_complete, clear_complete,
-					output reg ld_X, ld_Y, plot_counter_enable, clear_counter_enable, plot_enable);
+module control(input clock, resetn, start_plot, plot_complete,
+					output reg load_rect_size, plot_counter_enable, plot_enable);
 
 	
-	reg [2:0] current_state, next_state;
+	reg [1:0] current_state, next_state;
 	
-	// FSM stays in S_PLOT_CYCLE_0 until all the 16 pixels have been drawn
+	// FSM stays in S_PLOT_CYCLE until rect_size pixels have been drawn
 	
-	localparam S_LOAD_X = 3'd0,
-				  S_LOAD_X_WAIT = 3'd1,
-				  S_LOAD_Y = 3'd2,
-				  S_LOAD_Y_WAIT = 3'd3,
-				  S_PLOT_HOLD = 3'd4,
-				  S_PLOT_CYCLE_0 = 3'd5,
-				  S_CLEAR_SCR = 3'd6;
+	localparam S_WAIT = 2'd0,
+				  S_LOAD_SIZE = 2'd1;
+				  S_PLOT = 2'd1;
 	
 	// ----------------------------------------- state table  ------------------------------------------------
 	
@@ -112,14 +97,10 @@ module control(input clock, resetn, store_pos, plot, clear_scr, plot_complete, c
 	begin: state_table
 		
 		case (current_state)
-			S_LOAD_X: next_state = store_pos ? S_LOAD_X_WAIT : S_LOAD_X;
-			S_LOAD_X_WAIT: next_state = store_pos ? S_LOAD_X_WAIT : S_LOAD_Y;
-			S_LOAD_Y: next_state = store_pos ? S_LOAD_Y_WAIT : S_LOAD_Y;
-			S_LOAD_Y_WAIT: next_state = store_pos ? S_LOAD_Y_WAIT : S_PLOT_HOLD;
-			S_PLOT_HOLD: next_state = plot ? S_PLOT_CYCLE_0 : S_PLOT_HOLD;
-			S_PLOT_CYCLE_0: next_state = plot_complete ? S_LOAD_X : S_PLOT_CYCLE_0;
-			S_CLEAR_SCR: next_state = clear_complete ? S_LOAD_X : S_CLEAR_SCR; // keep clearing until all pixels are 000
-			default: next_state = S_LOAD_X;
+			S_WAIT: next_state = start_plot ? S_LOAD_SIZE : S_WAIT;
+			S_LOAD_SIZE: next_state = S_PLOT; // provide a state to load rect size into size counter
+			S_PLOT: next_state = plot_complete ? S_WAIT : S_PLOT;
+			default: next_state = S_WAIT;
 		endcase
 		
 	end // state_table
@@ -130,25 +111,16 @@ module control(input clock, resetn, store_pos, plot, clear_scr, plot_complete, c
 	begin: control_signals
 	
 		// prevent latching by assuming all control signals to be 0 at the beginning
-		ld_X = 1'b0;
-		ld_Y = 1'b0;
+		load_rect_size = 1'b0;
 		plot_counter_enable = 1'b0;
-		clear_counter_enable = 1'b0;
 		plot_enable = 1'b0;
 		
 		case (current_state)
-			S_LOAD_X: ld_X = 1'b1;
-			S_LOAD_Y: ld_Y = 1'b1;
-			S_PLOT_CYCLE_0:
+			S_LOAD_SIZE: load_rect_size = 1'b1;
+			S_PLOT:
 			begin
 				// start counting positions
 				plot_counter_enable = 1'b1;
-				plot_enable = 1'b1;
-			end
-			S_CLEAR_SCR:
-			begin
-				// start clear counter
-				clear_counter_enable = 1'b1;
 				plot_enable = 1'b1;
 			end
 			// no default required since no latches and we already assigned default values
@@ -160,9 +132,7 @@ module control(input clock, resetn, store_pos, plot, clear_scr, plot_complete, c
 	always @(posedge clock)
 	begin: state_FFs
 		if (!resetn)
-			current_state <= S_LOAD_X;
-		else if (clear_scr == 1'b1)
-			current_state <= S_CLEAR_SCR;
+			current_state <= S_WAIT;
 		else
 			current_state <= next_state; // at each clock cycle, move to the next computed state
 	end // state_FFs
