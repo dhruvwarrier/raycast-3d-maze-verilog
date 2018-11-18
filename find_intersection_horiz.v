@@ -4,7 +4,7 @@ module find_wall_intersection_horiz
 	(
 		input signed [12:0] playerX, playerY, 		// player's current X and Y position
 		input signed [9:0] alpha_X, 					// angle of ray currently being cast in fixed point format 
-		input signed [3:0] alpha_Y,					// alpha_X is the left of the decimal point, alpha_Y is the right
+		input signed [9:0] alpha_Y,					// alpha_X is the left of the decimal point, alpha_Y is the right
 		input clock, 										// On board clock, 50 MHz for the DE1_SoC
 		input resetn, 										// active-low, resets the FSM and clears the datapath registers
 		input begin_calc,									// begins calculation of wall intersection
@@ -89,6 +89,7 @@ module find_wall_intersection_horiz
 		.find_next_intersection(find_next_intersection),
 		.convert_to_grid_coords(convert_to_grid_coords),
 		.check_for_wall(check_for_wall),
+		
 		
 		// ------------------------------------ data input and output --------------------------------------
 		
@@ -193,7 +194,7 @@ module datapath_find_intersection_horiz (input clock, resetn,
 					 find_offset_0, find_offset_1, find_next_intersection, 
 					 convert_to_grid_coords, check_for_wall,
 					 input signed [12:0] playerX, playerY, 
-					 input signed [9:0] alpha_X, input signed [3:0] alpha_Y,
+					 input signed [9:0] alpha_X, input signed [9:0] alpha_Y,
 					 output reg signed [12:0] currentX, currentY,
 					 output reg reached_wall, reached_maze_bounds);
 	
@@ -211,7 +212,7 @@ module datapath_find_intersection_horiz (input clock, resetn,
 	// sin, cos, tan LUTs take fixed points as inputs and give fixed points as outputs
 	
 	wire signed [9:0] tan_alpha_X;
-	wire signed [16:0] tan_alpha_Y;
+	wire signed [17:0] tan_alpha_Y;
 	
 	tan_LUT lookup_TAN_value(.angleX(alpha_X),.angleY(alpha_Y),.ratioX(tan_alpha_X),.ratioY(tan_alpha_Y));
 	
@@ -220,9 +221,9 @@ module datapath_find_intersection_horiz (input clock, resetn,
 	wire signed [20:0] ray_proj_X;
 	
 	int_fixed_point_div_int divider_line_eq (
-	
+		
 		// performs fixed point division: ray_proj_X = (playerY - A_y) / tan(alpha)
-	
+		
 		.int_in(playerY - A_y),
 		.fixed_X(tan_alpha_X),
 		.fixed_Y(tan_alpha_Y),
@@ -233,7 +234,7 @@ module datapath_find_intersection_horiz (input clock, resetn,
 	wire signed [20:0] offset_proj_X;
 	
 	int_fixed_point_div_int divider_offset (
-	
+		
 		// performs fixed point division: offset_proj_X = Y_a / tan(alpha)
 	
 		.int_in(Y_a),
@@ -279,9 +280,9 @@ module datapath_find_intersection_horiz (input clock, resetn,
 			end
 		
 			if (find_first_intersection_0) begin
-				if (alpha >= 0 && alpha < 180) // ray facing up
+				if (alpha_X >= 0 && alpha_X < 180) // ray facing up
 					A_y <= $floor(playerY / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
-				else if (alpha >= 180 && alpha < 360) // ray facing down
+				else if (alpha_X >= 180 && alpha_X < 360) // ray facing down
 					A_y <= $floor(playerY / 64) * 64 + 64; // add 64 to make A_y the Y position of the next grid block
 			end
 			
@@ -292,9 +293,9 @@ module datapath_find_intersection_horiz (input clock, resetn,
 			end
 			
 			if (find_offset_0) begin
-				if (alpha >= 0 && alpha < 180)
+				if (alpha_X >= 0 && alpha_X < 180)
 					Y_a <= -64;
-				else if (alpha >= 180 && alpha < 360)
+				else if (alpha_X >= 180 && alpha_X < 360)
 					Y_a <= 64;
 			end
 			
