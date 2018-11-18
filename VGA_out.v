@@ -91,45 +91,4 @@ module VGA_out
 	// For each position vector, it produces a high plot_enable which writes the pixel to the VGA frame buffer
 	// Signals produced below: x, y, colour and writeEn for the VGA controller
 	
-	VGA_draw_square draw_square(
-	
-		// -------------------------------------- inputs ---------------------------------------
-	
-		.clock(CLOCK_50),
-		
-		// resets the FSM to the initial state
-		// this is KEY[0]
-		.resetn(resetn),
-		
-		// input position (X or Y) to be loaded in memory
-		.pos_in(pos_in),
-		
-		// input color in RGB, total of 8 possible colors
-		.color_in(SW[9:7]),
-		
-		// control signal to store input position in memory
-		.store_pos(store_pos),
-		
-		// clears screen to black
-		.clear_scr(clear_scr),
-		
-		.plot(plot),
-		
-		// -------------------------------------- outputs ---------------------------------------
-		
-		// generates writeEn only after X and Y have been loaded in memory
-		// disregards plot until position values have been loaded and generates plot_enable after
-		// draws a 4x4 square by default, by changing X and Y and producing plot_enable for each position vector (X,Y)
-		
-		.plot_enable(writeEn),
-		
-		// X and Y position generated at each FSM cycle
-		.X(x),
-		.Y(y),
-		
-		// color_in usually flows out to color_out unless the screen is being cleared in which case it is 000 i.e. black
-		.color_out(colour)
-	
-	);
-	
 endmodule

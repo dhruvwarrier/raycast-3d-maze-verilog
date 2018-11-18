@@ -4,7 +4,7 @@ module VGA_draw_rectangle
 	(
 		input [7:0] X_pos_in,// Initial X position to draw rectangle at
 		input [6:0] Y_pos_in,// Initial Y position to draw rectangle at
-		input [7:0] rect_size,// size of rectangle to draw in Y. X size is 1 mega-pixel (4 pixels at normal resolution)
+		input [6:0] rect_size,// size of rectangle to draw in Y. X size is 1 mega-pixel (4 pixels at normal resolution)
 		input [2:0] color_in,// color_in simply flows to color_out, however this can be changed in the future if required
 		input start_plot, 	// starts the plotting process
 		input clock,			// On board clock, 50 MHz for the DE1
@@ -73,7 +73,7 @@ module VGA_draw_rectangle
 		
 		// ----------------------------------------- outputs to FSM -----------------------------------------
 		
-		.plot_complete(plot_complete),
+		.plot_complete(plot_complete)
 	
 	);
 
@@ -85,10 +85,10 @@ module control(input clock, resetn, start_plot, plot_complete,
 	
 	reg [1:0] current_state, next_state;
 	
-	// FSM stays in S_PLOT_CYCLE until rect_size pixels have been drawn
+	// FSM stays in S_PLOT until rect_size mega-pixels have been drawn
 	
 	localparam S_WAIT = 2'd0,
-				  S_LOAD_SIZE = 2'd1;
+				  S_LOAD_SIZE = 2'd1,
 				  S_PLOT = 2'd1;
 	
 	// ----------------------------------------- state table  ------------------------------------------------
@@ -121,7 +121,7 @@ module control(input clock, resetn, start_plot, plot_complete,
 			begin
 				// start counting positions
 				plot_counter_enable = 1'b1;
-				plot_enable = 1'b1;
+				plot_enable = 1'b1; // set plot_enable high so we write to the frame buffer each time
 			end
 			// no default required since no latches and we already assigned default values
 		endcase
@@ -139,76 +139,35 @@ module control(input clock, resetn, start_plot, plot_complete,
 
 endmodule
 
-module datapath(input clock, resetn, ld_X, ld_Y, plot_counter_enable, clear_counter_enable,
-					 input [6:0] data_in,
-					 output reg [7:0] data_out_X, output reg [6:0] data_out_Y, 
-					 output plot_complete, output clear_complete);
+module datapath(input clock, resetn, load_rect_size, plot_counter_enable,
+					 input [7:0] X_pos_in, input [6:0] Y_pos_in, rect_size,
+					 output [7:0] X_pos_out, output reg [6:0] Y_pos_out, 
+					 output plot_complete);
 	
-	// input registers, initial X and Y pos
-	reg [7:0] X_pos;
-	reg [6:0] Y_pos;
-	
-	// computed X and Y pos
-	reg [7:0] counter_out_X;
+	// computed Y position
 	reg [6:0] counter_out_Y;
 	
-	// ---------------------------------------- datapath output table  ------------------------------------------------
-	
-	always @(posedge clock)
-	begin
-	
-		if (!resetn) begin
-			X_pos <= 8'b0;
-			Y_pos <= 7'b0;
-		end
-		else begin
-			if (ld_X)
-				X_pos <= {1'b0, data_in}; // pad with one bit to adjust for size difference
-			if (ld_Y)
-				Y_pos <= data_in;
-		end
-	end
-	
-	// -------------------------------------- output position registers  -----------------------------------------------
-	
-	always @(posedge clock)
-	begin
-		if (!resetn)
-			data_out_X <= 0;
-		else
-			data_out_X <= counter_out_X; // counter_out_X is registered to keep it stable for 1 clock cycle
-	end
-	
-	always @(posedge clock)
-	begin
-		if (!resetn)
-			data_out_Y <= 0;
-		else
-			data_out_Y <= counter_out_Y; // counter_out_X is registered to keep it stable for 1 clock cycle
-	end
+	// keep the X position constant, and iterate over Y only
+	assign X_pos_out = X_pos_in;
 	
 	// -------------------------------------- position counting logic  -----------------------------------------------
-	wire [3:0] position_count;
+	wire [6:0] position_count;
 	
-	wire [13:0] clear_position_count;
-	
-	counter4 count_pos(
+	counter7 count_pos(
 	
 		.clock(clock),
-		.resetn(plot_counter_enable),
+		
+		// parallel load rect_size at high load_rect_size
+		.parallel_load(load_rect_size),
+		
+		// enable the counter in the next state
+		.enable(plot_counter_enable),
+		
+		// data to be loaded into counter at high load_rect_size
+		.Q_max(rect_size),
 		
 		.Q(position_count),
 		.count_complete(plot_complete)
-	
-	);
-	
-	counter13 count_clear_pos(
-	
-		.clock(clock),
-		.resetn(clear_counter_enable),
-		
-		.Q(clear_position_count),
-		.count_complete(clear_complete)
 	
 	);
 	
@@ -216,64 +175,47 @@ module datapath(input clock, resetn, ld_X, ld_Y, plot_counter_enable, clear_coun
 	
 	always @(posedge clock)
 	begin
-		if (clear_counter_enable == 1'b1) begin
-			// if counter is enabled and not completed yet, increment over all pixels on the screen
-			counter_out_X <= (clear_position_count / 128);
-			counter_out_Y <= (clear_position_count % 128);
-		end else begin
-			// else in a non-clearing state, prepare to draw a square
-			counter_out_X <= X_pos + (position_count % 4);
-			counter_out_Y <= Y_pos + (position_count / 4);
+		if (plot_counter_enable == 1'b1) begin
+			// iterate over all the positions
+			// counts from Y_pos to Y_pos + rect_size - 1
+			counter_out_Y <= Y_pos_in + position_count; 
 		end
 	end
 	
-endmodule
-
-module counter4(input clock, resetn, output reg [3:0] Q, output reg count_complete);
-
-	// counter counts from 00000 to 10000 and then resets (0 to 16)
+	// -------------------------------------- output position registers  -----------------------------------------------
 	
-	reg [4:0] Q_buffer;  
-
+	// only require an output position register for Y_pos_out
+	
 	always @(posedge clock)
 	begin
-	
-		count_complete = 1'b0;
-	
-		if (resetn == 1'b0)
-			Q_buffer <= 0;
-		else if (Q_buffer == 5'b10001) begin
-			count_complete = 1'b1;
-			Q_buffer <= 0;
-		end else
-			Q_buffer <= Q_buffer + 1;
-			
-		Q <= Q_buffer[3:0];
-		
+		if (!resetn)
+			Y_pos_out <= 0;
+		else
+			Y_pos_out <= counter_out_Y; // counter_out_Y is registered to keep it stable for 1 clock cycle
 	end
-
+	
 endmodule
 
-module counter13(input clock, resetn, output reg [13:0] Q, output reg count_complete);
+module counter7(input clock, enable, parallel_load, input [6:0] Q_max, output reg [6:0] Q, output reg count_complete);
 
-	// counter counts from 0 to 16384 (128^2) and then resets
+	// counter counts from 0 to Q_max-1 and then resets
 	
-	reg [14:0] Q_buffer;  
+	reg [6:0] max_Q;
 
 	always @(posedge clock)
 	begin
 	
 		count_complete = 1'b0;
 	
-		if (resetn == 1'b0)
-			Q_buffer <= 0;
-		else if (Q_buffer == 15'b100000000000001) begin
+		if (parallel_load == 1'b1)
+			max_Q <= Q_max; // load this value and count up to it when the counter is enabled
+		else if (enable == 1'b1)
+			Q <= 0;
+		else if (Q == Q_max) begin
 			count_complete = 1'b1;
-			Q_buffer <= 0;
+			Q <= 0;
 		end else
-			Q_buffer <= Q_buffer + 1;
-			
-		Q <= Q_buffer[13:0];
+			Q <= Q + 1;
 		
 	end
 
