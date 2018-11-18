@@ -69,7 +69,7 @@ module VGA_draw_rectangle
 		.rect_size(rect_size),
 		
 		.X_pos_out(X),
-		.X_pos_out(Y),
+		.Y_pos_out(Y),
 		
 		// ----------------------------------------- outputs to FSM -----------------------------------------
 		
@@ -207,15 +207,14 @@ module counter7(input clock, enable, parallel_load, input [6:0] Q_max, output re
 	
 		count_complete = 1'b0;
 	
-		if (parallel_load == 1'b1)
+		if (parallel_load == 1'b1) begin
 			max_Q <= Q_max; // load this value and count up to it when the counter is enabled
-		else if (enable == 1'b1)
 			Q <= 0;
-		else if (Q == Q_max) begin
+		end else if (Q == Q_max) begin
 			count_complete = 1'b1;
 			Q <= 0;
-		end else
-			Q <= Q + 1;
+		end else if (enable == 1'b1)
+			Q <= Q + 1;	
 		
 	end
 
