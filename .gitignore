@@ -1,8 +1,9 @@
 *.qws
 *.qpf
 *.txt
+vga_adapter/*.txt
 *.bak
-*.wlf
+simulations/*.wlf
 db/
 devkits/
 work/
