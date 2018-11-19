@@ -41,7 +41,7 @@ module control_draw_slice_FSM ( input clock, resetn, begin_calc, end_calc
 		localparam S_WAIT = 4'd0,
 					S_FIND_BETA = 4'd1;
 					S_FIND_ALPHA = 4'd2;
-					S_FIND_WALL_INTERSECTION = 4'd3
+					S_FIND_WALL_INTERSECTION = 4'd3;
 					S_FIND_POSITION_DIFF = 4'd4;
 					S_FIND_DIST = 4'd5;
 					S_FIND_ABS = 4'd6;			
@@ -117,7 +117,8 @@ endmodule
 
 module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath, find_beta, find_alpha, find_wall_intersection, find_position_diff, find_dist,
 				find_ABS, lower_dist, rev_fishbowl, proj_height, draw_slice,
-				input signed [12:0] playerX, playerY
+			       input signed [12:0] playerX, playerY,
+			       input [7:0] counter_value,
 				output end_plot);
 	
 		reg signed [20:0] betaX, betaY, alphaX, alphaY, wall_int_horiz, wall_int_vert, positionDiff_X, positionDiff_Y, distX, distY, 
