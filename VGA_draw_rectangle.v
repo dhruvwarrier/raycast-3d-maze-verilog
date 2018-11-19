@@ -89,7 +89,7 @@ module control(input clock, resetn, start_plot, plot_complete,
 	
 	localparam S_WAIT = 2'd0,
 				  S_LOAD_SIZE = 2'd1,
-				  S_PLOT = 2'd1;
+				  S_PLOT = 2'd2;
 	
 	// ----------------------------------------- state table  ------------------------------------------------
 	
