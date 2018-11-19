@@ -17,6 +17,9 @@ module draw_frame
 		output draw_enable					// write enable to the frame buffer in vga_adapter
 	);
 	
+	// tells the datapath to load player attributes (playerX, playerY, alpha_X, alpha_Y)
+	wire load_player_attr;
+	
 	// tells the datapath to start counting through positions to clear the screen
 	wire clear_counter_enable;
 	
@@ -36,13 +39,14 @@ module draw_frame
 		
 		// -------------------------------- inputs that affect FSM state -------------------------------------
 		
-		.begin_draw(clock60hz),
+		.begin_frame_draw(clock60hz),
 		
 		.clear_complete(clear_complete),
 		.draw_complete(draw_complete),
 		
 		// ------------------------------------ outputs to the datapath --------------------------------------
 		
+		.load_player_attr(load_player_attr),
 		.clear_counter_enable(clear_counter_enable),
 		.draw_slice(draw_slice),
 		
@@ -58,6 +62,7 @@ module draw_frame
 		
 		// ------------------------------------ control signals from FSM --------------------------------------
 		
+		.load_player_attr(load_player_attr),
 		.clear_counter_enable(clear_counter_enable),
 		.draw_slice(draw_slice),
 		
@@ -80,5 +85,68 @@ module draw_frame
 		.draw_complete(draw_complete)
 	
 	);
+	
+endmodule
+
+module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete, draw_complete,
+								  output reg load_player_attr, clear_counter_enable, draw_slice, draw_enable);
+								  
+	reg [1:0] current_state, next_state;
+
+	localparam S_WAIT = 2'd0,
+				  S_CLEAR_SCR = 2'd1,
+				  S_DRAW = 2'd2;
+	
+	// ----------------------------------------- state table  ------------------------------------------------
+	
+	always @(*)
+	begin: state_table
+	
+		case(current_state)
+			S_WAIT: next_state = begin_frame_draw ? S_CLEAR_SCR : S_WAIT;
+			S_CLEAR_SCR: next_state = clear_complete ? S_DRAW : S_CLEAR_SCR;
+			S_DRAW: next_state = draw_complete ? S_WAIT : S_DRAW;
+			default: next_state = S_WAIT;
+		endcase
+		
+	end // state_table
+	
+	// ------------------------------- output logic i.e. control signal logic  -------------------------------------
+	
+	always @(*)
+	begin: control_signals
+	
+		// prevent latching by assuming all control signals to be 0 at the beginning
+		load_player_attr = 1'b0;
+		clear_counter_enable = 1'b0;
+		draw_slice = 1'b0;
+		draw_enable = 1'b0;
+		
+		case(current_state)
+			S_WAIT: load_player_attr = 1'b1;
+			S_CLEAR_SCR: 
+			begin
+				clear_counter_enable = 1'b1;
+				draw_enable = 1'b1; // so we can draw black pixels over the entire screen
+			end
+			S_DRAW:
+			begin
+				// start drawing 160 slices across the screen by activating a counter
+				draw_slice = 1'b1;
+				draw_enable = 1'b1;
+			end
+		endcase
+	
+	end // control_signals
+	
+	// ------------------------------------- current state register  -------------------------------------------
+	
+	always @(posedge clock)
+	begin: state_FFs
+		if (!resetn)
+			current_state <= S_WAIT;
+		else
+			current_state <= next_state; // at each clock cycle, move to the next computed state
+	end // state_FFs
 	
 endmodule
