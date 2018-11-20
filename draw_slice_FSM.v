@@ -2,12 +2,13 @@
 module find_slice_height
 	(
 		input signed [12:0] playerX, playerY,
-		input signed [9:0] angleX,
-		input [9:0] angleY,  // will be provided by counter
+		input signed [9:0] angle_X,
+		input signed [9:0] angle_Y, 
+		input [7:0] column_count, // will be provided by counter
 		input clock,
 		input resetn,
 		input begin_calc,
-		output [6:0] height,
+		output [6:0] slice_size,
 		output end_calc//calculation ends
 	);
 
@@ -32,12 +33,12 @@ module find_slice_height
 	
 
 
-///////outputs 
+//-------outputs 
 assign height = proj_height; 
 assign end_calc = end_calc;
 
 //call datapath and control here 
-control_draw_slice_FSM u1( .clock(clock),
+control_draw_slice_FSM u1( 	.clock(clock),
 				.resetn(resetn),
 				.begin_calc(begin_calc),
 				.end_calc(end_calc),
