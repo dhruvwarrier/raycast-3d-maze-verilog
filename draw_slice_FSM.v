@@ -24,11 +24,7 @@ module find_slice_height
 	wire rev_fishbowl;		//multiply by cos beta
 	wire proj_height;		//divide by 8896 and find proj height  
 	wire end_calc;    		//indicates that the calculation has ended 
-	wire wall_found_horiz; 		//indicates wall is found at ray 
-	wire wall_found_vert;		//indicates wall is found at vertical ray 
 	wire wall_found;  		//high if wall is found at angle 
-	wire end_horiz_int_calc;   	//indicates horizontal intersection calculations are complete 
-	wire end_vert_int_calc;		//indicates vertical intersection calculations are complete 
 	wire end_int_calc;		//indicates intersection calculation has ended
 	
 
@@ -42,11 +38,7 @@ control_draw_slice_FSM u1( 	.clock(clock),
 				.resetn(resetn),
 				.begin_calc(begin_calc),
 				.end_calc(end_calc),
-				.end_horiz_int_calc(end_horiz_int_calc),
-				.end_vert_int_calc(end_vert_int_calc),
 				.end_int_calc(end_int_calc),
-				.wall_found_horiz(wall_found_horiz),
-				.wall_found_vert(wall_found_vert),
 				.wall_found(wall_found),
 				.reset_datapath(reset_datapath),
 				.find_beta(find_beta), 
@@ -84,11 +76,7 @@ datapath_draw_slice_fsm u2( 	.clock(clock),
 				.angleX(angleX), 
 				.angleY(angleY),
 				.counter_value(counter_value),
-				.end_horiz_int_calc(end_horiz_calc),
-				.end_vert_int_calc(end_vert_calc),
-				.end_int_calc(end_int_calc),
-				.wall_found_horiz(wall_found_horiz),
-				.wall_found_vert(wall_found_vert),
+			  	.end_int_calc(end_int_calc),
 				.end_calc(end_calc),
 				.height(proj_height)
 );
@@ -97,7 +85,7 @@ datapath_draw_slice_fsm u2( 	.clock(clock),
 endmodule
 
 
-module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc, end_horiz_int_calc, end_vert_int_calc, end_int_calc, wall_found_horiz, wall_found_vert, wall_found,
+module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc, end_int_calc,  wall_found,
 				output reg reset_datapath, find_beta, find_alpha, find_wall_intersection, find_position_diff,  find_dist,
 				find_ABS, lower_dist, rev_fishbowl, proj_height);
 
@@ -126,7 +114,7 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc, end_hor
 			S_FIND_BETA: next_state = S_FIND_ABS_BETA;
 			S_FIND_ABS_BETA: next_state = S_FIND_ALPHA;
 			S_FIND_ALPHA: next_state = S_FIND_WALL_INTERSECTION;
-			S_FIND_WALL_INTERSECTION: end_horiz_int_calc ? S_FIND_POSITION_DIFF : S_WAIT;
+			S_FIND_WALL_INTERSECTION: wall_found ? S_FIND_POSITION_DIFF : S_WAIT;
 			S_FIND_POSITION_DIFF: next_state = S_FIND_DIST;		
 			S_FIND_DIST: next_state = S_FIND_ABS;
 			S_FIND_ABS: next_state = S_LOWER_DIST;
@@ -185,12 +173,13 @@ module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath,
 				input signed [12:0] playerX, playerY,
 			        input [9:0] angle_X, angle_Y,
 			        input [7:0] coulumn_count,
-				output reg end_horiz_int_calc, end_vert_int_calc, end_int_calc, wall_found_horiz, wall_found_vert, wall_found, end_calc,
+				output reg  end_int_calc, wall_found, end_calc,
 				output [6:0] height
 					);
 	
 		reg signed [9:0] betaX, betaY, alphaX, alphaY, 
 		reg signed [12:0] wall_int_horiz, wall_int_vert, positionDiff_X, positionDiff_Y, distX, distY, abs_distX, abs_distY, lowerDist, rev_fish;
+	reg end_horiz_int_calc, end_vert_int_calc, wall_found_horiz, wall_found_vert;
 		
 		
 //--------------finding wall intersection using raycast modules -----------
@@ -260,7 +249,7 @@ wire signed [9:0] alpha_y;
 int_fixed_point_mult_fixed_point m1(
 	.int_in(column_count)
 		.fixed_X(1'b0),
-		.fixed_Y(3'd375),
+		.fixed_Y(9'b101110111),
  		.fixed_X_out(beta_x),
 		.fixed_Y_out(beta_y)
 );
