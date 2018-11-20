@@ -9,7 +9,7 @@ module draw_frame
 		input [2:0] slice_color,			// color of each drawn slice (160 slices in one frame)
 		input clock50MHz,						// 50 MHz clock from DE1-SoC
 		input clock60Hz,						// rate-divided clock, used to drive draw_frame at 60 frames per second
-		input resetn							// active-low resetn, clears the datapath registers and resets FSM
+		input resetn,							// active-low resetn, clears the datapath registers and resets FSM
 		output [2:0] color_out,				// slice_color flows to color_out when a frame is being drawn, else is set to 000 
 													// when the frame is being cleared
 		output [7:0] X,						// generated X position to draw a mega-pixel at
@@ -47,6 +47,14 @@ module draw_frame
 	
 	// tells the FSM that all the slices have been drawn and to go back to S_WAIT
 	wire draw_frame_complete;
+	
+	// ------------------------------------------ Higher-level module --------------------------------------------------
+	
+	// draw_enables from the FSM and datapath respectively
+	wire draw_enable_clearscr, draw_enable_slice;
+	
+	// draw_enable can be driven by FSM to clear the screen or by the datapath's VGA_draw_rectangle to draw a slice
+	assign draw_enable = draw_enable_clearscr || draw_enable_slice;
 
 	control_draw_frame FSM (
 	
@@ -71,7 +79,7 @@ module draw_frame
 		.draw_slice(draw_slice),
 		
 		// ------------------------------------ outputs to higher-level module --------------------------------------
-		.draw_enable(draw_enable)
+		.draw_enable(draw_enable_clearscr)
 	
 	);
 	
@@ -106,7 +114,10 @@ module draw_frame
 		.clear_complete(clear_complete),
 		.compute_size_complete(compute_slice_complete),
 		.draw_slice_complete(draw_slice_complete),
-		.draw_frame_complete(draw_frame_complete)
+		.draw_frame_complete(draw_frame_complete),
+		
+		// ------------------------------------ outputs to higher-level module --------------------------------------
+		.draw_enable(draw_enable_slice)
 	
 	);
 	
@@ -170,11 +181,7 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 			end
 			S_COMPUTE_SLICE_SIZE: compute_slice_size = 1'b1;
 			S_COMPUTE_SLICE_LOC: compute_slice_loc = 1'b1;
-			S_DRAW_SLICE:
-			begin
-				draw_slice = 1'b1;
-				draw_enable = 1'b1;
-			end
+			S_DRAW_SLICE: draw_slice = 1'b1; // draw_enable for this is controlled by the datapath's VGA_draw_rectangle
 		endcase
 	
 	end // control_signals
@@ -196,7 +203,12 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 									input signed [12:0] playerX, playerY, input signed [9:0] angle_X, angle_Y,
 									input [2:0] color_in,
 									output reg [7:0] X_draw_pos, output reg [6:0] Y_draw_pos, output [2:0] color_out,
-									output clear_complete, compute_size_complete, draw_slice_complete, draw_frame_complete);
+									output clear_complete, compute_size_complete, draw_slice_complete, 
+									draw_frame_complete, draw_enable);
+	
+	// screen size in X
+	localparam screen_size_columns = 160;
+	
 	// player attributes
 	// Px and Py are playerX and playerY respectively, and a_X and a_Y are angle_X and angle_Y respectively
 	// Stored in regs to keep them constant throughout drawing of the frame, use only these in calculations
@@ -213,31 +225,37 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 	// computed in datapath after compute_slice_loc
 	reg [6:0] slice_loc_Y;
 	
+	// holds the generated X and Y positions from the VGA_draw_rectangle module (draw_slice)
+	reg [7:0] draw_slice_out_X;
+	reg [6:0] draw_slice_out_Y;
+	
 	// iterates over the columns to draw different slices by casting one ray for each column 
 	reg [7:0] column_count;
 	
-	// ------------------------------------- draw slice module instance  ----------------------------------------------
+	// color_out is black when clearing the screen, else color_in simply flows out to color_out
+	assign color_out = (clear_counter_enable) ? 3'b000 : color_in;
 	
-	// controlled by datapath 
-	reg begin_slice_size_computation;
-	// controlled by this module
+	// ------------------------------------- draw_slice module instance  ----------------------------------------------
+	
+	// controlled by this module, high when computation is complete
 	reg end_slice_size_computation;
 	
-	draw_slice draw_slice(
+	find_slice_size find_slice_size (
 	
 		.clock(clock),
 		.resetn(resetn),
 	
-		// data inputs
+		// begin this calculation when reached S_COMPUTE_SLICE_SIZE
+		.begin_calc(compute_slice_size),
+	
+		// ------------------------------ data inputs ---------------------------------
 		.playerX(Px),
 		.playerY(Py),
 		.angle_X(a_X),
 		.angle_Y(a_Y),
 		.column_count(column_count),
 		
-		// begin this calculation
-		.begin_calc(begin_slice_size_computation),
-		
+		// ---------------------- data outputs + end signal ---------------------------
 		// computed output
 		.slice_size(slice_size),
 		// high when the calculation has ended
@@ -247,9 +265,33 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 	
 	// ---------------------------------- VGA_draw_rectangle module instance  -----------------------------------------
 	
-	VGA_draw_rectangle(
+	// controlled by this module, high when drawing has ended
+	reg end_slice_draw;
 	
+	VGA_draw_rectangle VGA_draw_slice(
 	
+		.clock(clock),
+		.resetn(resetn),
+		
+		// begin plotting of slice when reached S_DRAW_SLICE
+		.start_plot(draw_slice),
+		
+		// ---------------------------- data inputs -----------------------------------
+		// column_count is the X_pos at which this slice needs to be drawn
+		.X_pos_in(column_count),
+		.Y_pos_in(slice_loc_Y),
+		.rect_size(slice_size),
+		.color_in(color_in),
+		
+		// ---------------------- data outputs + end signal ---------------------------
+		.plot_enable(draw_enable),
+		.X(draw_slice_out_X),
+		.Y(draw_slice_out_Y),
+		// high when the slice has been drawn
+		.end_plot(end_slice_draw)
+		
+		// forget color_out for now, since we don't have to change the color
+
 	);
 	
 	// ---------------------------------------- datapath output table  ------------------------------------------------
@@ -271,16 +313,15 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 				Py <= playerY;
 				a_X <= alpha_X;
 				a_Y <= alpha_Y;
-				// prepare this 
+				// prepare the column count, which must count from 1 to 160
 				column_count <= 1;
 			end
 			
 			// clear_counter_enable is handled by counter underneath
 			
 			if (compute_slice_size) begin
-				// start the computation
-				begin_slice_size_computation <= 1'b1;
-				// when compute_size_complete turns high, it moves to the next state
+				// when compute_size_complete turns high, it moves to the next state, which disables compute_slice_size
+				// and prevents the computation from starting before this state is reached again
 				compute_size_complete <= end_slice_size_computation;
 			end
 			
@@ -288,11 +329,18 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 				 // if this overflows we'll get a max height slice, slice_size must be 120 or smaller
 				 // this automatically floors the value, so for odd slice_size, the slice will be drawn 0.5 mega-pixel higher
 				slice_loc_Y <= (120 - slice_size) / 2;
+				// we're done with this column, prepare column count for next slice
+				column_count <= column_count + 1;
 			end
 			
 			if (draw_slice) begin
-				
+				// when end_slice_draw
+				draw_slice_complete <= end_slice_draw;
 			end
+			
+			if (column_count == screen_size_columns)
+				draw_frame_complete <= 1'b1; // when we've finished drawing all slices, update the FSM
+			
 		end
 	end
 	
@@ -316,8 +364,8 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 	begin
 		if (clear_counter_enable) begin
 			// if counter is enabled and not completed yet, increment over all pixels on the screen
-			clear_counter_out_X <= (clear_position_count % 160);
-			clear_counter_out_Y <= (clear_position_count / 160);
+			clear_counter_out_X <= (clear_position_count % screen_size_columns);
+			clear_counter_out_Y <= (clear_position_count / screen_size_columns);
 		end
 	end
 
@@ -332,7 +380,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		else if (clear_counter_enable)
 			X_draw_pos <= clear_counter_out_X;
 		else
-			X_draw_pos <= 
+			X_draw_pos <= draw_slice_out_X;
 	end
 	
 	always @(posedge clock)
@@ -342,7 +390,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		else if (clear_counter_enable)
 			Y_draw_pos <= clear_counter_out_Y;
 		else
-			Y_draw_pos <= 
+			Y_draw_pos <= draw_slice_out_Y;
 	end
 	
 	
