@@ -81,7 +81,7 @@ endmodule
 
 
 module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_found,
-				output reg reset_datapath, find_beta, find_alpha, find_wall_intersection, find_position_diff,  find_dist,
+				output reg reset_datapath, find_beta, abs_beta, find_alpha, find_wall_intersection, find_position_diff,  find_dist,
 				find_ABS, lower_dist, rev_fishbowl, proj_height);
 
 		reg [3:0] current_state, next_state;
@@ -171,7 +171,7 @@ module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath,
 			        input signed [9:0] angle_X, angle_Y,
 			        input [7:0] column_count,
 				output reg  wall_found, end_calc,
-				output [6:0] height
+				output reg [6:0] height
 					);
 	
 	reg signed [9:0] betaX, betaY, alphaX, alphaY, abs_betaX, abs_betaY;
@@ -296,10 +296,10 @@ int_fixed_point_subtract_fixed_point s2(
 			alphaY <= 12'b0;
 			positionDiff_X <= 12'b0;
 			positionDiff_Y <= 12'b0;
-			abs_diffX <= 12'b0;
-			abs_diffY <= 12'b0;
 			distX <= 12'b0;
 			distY <= 12'b0;
+			abs_distX <= 12'b0;
+			abs_distY <= 12'b0;
 			lowerDist <= 12'b0;
 			rev_fish <= 12'b0;
 			height <= 12'b0;
@@ -342,7 +342,7 @@ int_fixed_point_subtract_fixed_point s2(
 				
 				if(~wall_found_horiz && ~wall_found_vert) begin
 					wall_found <= 1'b0; 
-					proj_height <= 7'b0000000; //height = 0 if no wall is found at ray  
+					computed_height <= 7'b0000000; //height = 0 if no wall is found at ray  
 					end_calc <= 1'b1; //end entire slice calc
 					
 				end
@@ -366,8 +366,8 @@ int_fixed_point_subtract_fixed_point s2(
 		end 
 		
 		if (find_ABS) begin 
-			abs_diffX <= distX ? -(distX): distX;
-			abs_diffY <= distY ? -(distY): distY;
+			abs_distX <= distX ? -(distX): distX;
+			abs_distY <= distY ? -(distY): distY;
 		end
 		
 		if (lower_dist) begin 
