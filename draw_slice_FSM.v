@@ -23,7 +23,6 @@ module find_slice_height
 	wire lower_dist;		//choose the smaller value
 	wire rev_fishbowl;		//multiply by cos beta
 	wire proj_height;		//divide by 8896 and find proj height  
-	wire end_calc;    		//indicates that the calculation has ended 
 	wire wall_found;  		//high if wall is found at angle 
 	wire end_int_calc;		//indicates intersection calculation has ended
 	
@@ -31,7 +30,6 @@ module find_slice_height
 
 //-------outputs 
 assign slice_size = proj_height; 
-assign end_calc = end_calc;
 
 //call datapath and control here 
 control_draw_slice_FSM u1( 	.clock(clock),
@@ -106,12 +104,12 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_f
 	always @(*)
 	begin: state_table 
 
-		case(current state)
-			S_WAIT: next state = begin_calc ? S_FIND_BETA : S_WAIT;
+		case(current_state)
+			S_WAIT: next_state = begin_calc ? S_FIND_BETA : S_WAIT;
 			S_FIND_BETA: next_state = S_FIND_ABS_BETA;
 			S_FIND_ABS_BETA: next_state = S_FIND_ALPHA;
 			S_FIND_ALPHA: next_state = S_FIND_WALL_INTERSECTION;
-			S_FIND_WALL_INTERSECTION: wall_found ? S_FIND_POSITION_DIFF : S_WAIT;
+			S_FIND_WALL_INTERSECTION: next_state = wall_found ? S_FIND_POSITION_DIFF : S_WAIT;
 			S_FIND_POSITION_DIFF: next_state = S_FIND_DIST;		
 			S_FIND_DIST: next_state = S_FIND_ABS;
 			S_FIND_ABS: next_state = S_LOWER_DIST;
