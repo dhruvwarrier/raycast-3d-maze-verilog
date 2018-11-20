@@ -176,9 +176,8 @@ module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath,
 	
 	reg signed [9:0] betaX, betaY, alphaX, alphaY, abs_betaX, abs_betaY;
 	reg signed [12:0] wall_int_horiz, wall_int_vert, positionDiff_X, positionDiff_Y, distX, distY, abs_distX, abs_distY, lowerDist, rev_fish;
-	reg [6:0] proj_height;
 	reg end_horiz_int_calc, end_vert_int_calc, wall_found_horiz, wall_found_vert;
-		
+	reg [6:0] computed_height;	
 		
 //--------------finding wall intersection using raycast modules -----------
 
@@ -384,7 +383,7 @@ int_fixed_point_subtract_fixed_point s2(
 		
 		if (proj_height) begin
 			
-				proj_height <= 14'b10001011000000 / rev_fish; //8896/ rev fish 
+				computed_height <= 14'b10001011000000 / rev_fish; //8896/ rev fish 
 				end_calc <= 1'b1;
 			end
 		
@@ -392,6 +391,15 @@ int_fixed_point_subtract_fixed_point s2(
 
 
 	end 
+	
+	always @(posedge)
+		begin
+			if(~resetn) 
+				height <= 0;
+			else
+				height <= computed_height;
+			
+		end
 end 
 
 	
