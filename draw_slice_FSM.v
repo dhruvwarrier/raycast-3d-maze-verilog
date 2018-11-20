@@ -172,14 +172,15 @@ endmodule
 module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath, find_beta, abs_beta, find_alpha, find_wall_intersection, find_position_diff, find_dist,
 				find_ABS, lower_dist, rev_fishbowl, proj_height, draw_slice,
 				input signed [12:0] playerX, playerY,
-			        input [9:0] angle_X, angle_Y,
-			        input [7:0] coulumn_count,
+			        input signed [9:0] angle_X, angle_Y,
+			        input [7:0] column_count,
 				output reg  end_int_calc, wall_found, end_calc,
 				output [6:0] height
 					);
 	
-	reg signed [9:0] betaX, betaY, alphaX, alphaY, abs_betaX, abs_betaY,
-		reg signed [12:0] wall_int_horiz, wall_int_vert, positionDiff_X, positionDiff_Y, distX, distY, abs_distX, abs_distY, lowerDist, rev_fish;
+	reg signed [9:0] betaX, betaY, alphaX, alphaY, abs_betaX, abs_betaY;
+	reg signed [12:0] wall_int_horiz, wall_int_vert, positionDiff_X, positionDiff_Y, distX, distY, abs_distX, abs_distY, lowerDist, rev_fish;
+	reg [6:0] proj_height;
 	reg end_horiz_int_calc, end_vert_int_calc, wall_found_horiz, wall_found_vert;
 		
 		
