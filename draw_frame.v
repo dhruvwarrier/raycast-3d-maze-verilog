@@ -42,9 +42,6 @@ module draw_frame
 	// tells the FSM that slice size computations are complete for this slice
 	wire compute_size_complete;
 	
-	// tells the FSM that slice Y position computation is complete
-	wire compute_loc_complete;
-	
 	// tells the FSM that drawing of this slice is complete and to compute the next slice
 	wire draw_slice_complete;
 	
@@ -62,7 +59,6 @@ module draw_frame
 		
 		.clear_complete(clear_complete),
 		.compute_size_complete(compute_size_complete),
-		.compute_loc_complete(compute_loc_complete),
 		.draw_slice_complete(draw_slice_complete),
 		.draw_frame_complete(draw_frame_complete),
 		
@@ -109,7 +105,6 @@ module draw_frame
 		
 		.clear_complete(clear_complete),
 		.compute_size_complete(compute_slice_complete),
-		.compute_loc_complete(complete_loc_complete),
 		.draw_slice_complete(draw_slice_complete),
 		.draw_frame_complete(draw_frame_complete)
 	
@@ -118,7 +113,7 @@ module draw_frame
 endmodule
 
 module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete, compute_size_complete,
-								  compute_loc_complete, draw_slice_complete, draw_frame_complete,
+								  draw_slice_complete, draw_frame_complete,
 								  output reg load_player_attr, clear_counter_enable, compute_slice_size,
 								  compute_slice_loc, draw_slice, draw_enable);
 								  
@@ -139,7 +134,7 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 			S_WAIT: next_state = begin_frame_draw ? S_CLEAR_SCR : S_WAIT;
 			S_CLEAR_SCR: next_state = clear_complete ? S_COMPUTE_SLICE_SIZE : S_CLEAR_SCR;
 			S_COMPUTE_SLICE_SIZE: next_state = compute_size_complete ? S_COMPUTE_SLICE_LOC : S_COMPUTE_SLICE_SIZE;
-			S_COMPUTE_SLICE_LOC : next_state = compute_loc_complete ? S_DRAW_SLICE : S_COMPUTE_SLICE_LOC;
+			S_COMPUTE_SLICE_LOC : next_state = S_DRAW_SLICE; // provide 1 cycle to compute location
 			S_DRAW_SLICE:
 			begin
 				// tackle possibilities in order of priority
@@ -196,13 +191,180 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 	
 endmodule
 
-module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_enable, draw_slice,
+module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_enable, compute_slice_size,
+									compute_slice_loc, draw_slice,
 									input signed [12:0] playerX, playerY, input signed [9:0] angle_X, angle_Y,
 									input [2:0] color_in,
 									output reg [7:0] X_draw_pos, output reg [6:0] Y_draw_pos, output [2:0] color_out,
-									output clear_complete, draw_complete);
+									output clear_complete, compute_size_complete, draw_slice_complete, draw_frame_complete);
+	// player attributes
+	// Px and Py are playerX and playerY respectively, and a_X and a_Y are angle_X and angle_Y respectively
+	// Stored in regs to keep them constant throughout drawing of the frame, use only these in calculations
+	reg signed [12:0] Px, Py;
+	reg signed [9:0] a_X, a_Y;
 	
+	// holds the generated X and Y positions to clear the screen
+	reg [7:0] clear_counter_out_X;
+	reg [6:0] clear_counter_out_Y;
+	
+	// computed by draw_slice module
+	reg [6:0] slice_size;
+	
+	// computed in datapath after compute_slice_loc
+	reg [6:0] slice_loc_Y;
+	
+	// iterates over the columns to draw different slices by casting one ray for each column 
+	reg [7:0] column_count;
+	
+	// ------------------------------------- draw slice module instance  ----------------------------------------------
+	
+	// controlled by datapath 
+	reg begin_slice_size_computation;
+	// controlled by this module
+	reg end_slice_size_computation;
+	
+	draw_slice draw_slice(
+	
+		.clock(clock),
+		.resetn(resetn),
+	
+		// data inputs
+		.playerX(Px),
+		.playerY(Py),
+		.angle_X(a_X),
+		.angle_Y(a_Y),
+		.column_count(column_count),
+		
+		// begin this calculation
+		.begin_calc(begin_slice_size_computation),
+		
+		// computed output
+		.slice_size(slice_size),
+		// high when the calculation has ended
+		.end_calc(end_slice_size_computation)
+	
+	);
+	
+	// ---------------------------------- VGA_draw_rectangle module instance  -----------------------------------------
+	
+	VGA_draw_rectangle(
+	
+	
+	);
+	
+	// ---------------------------------------- datapath output table  ------------------------------------------------
+	
+	always @(posedge clock)
+	begin
+	
+		if (!resetn) begin
+			Px <= 12'b0;
+			Py <= 12'b0;
+			a_X <= 10'b0;
+			a_Y <= 10'b0;
+		end
+		else begin
+		
+			if (load_player_attr) begin
+				// store player attributes to keep them constant for this frame
+				Px <= playerX;
+				Py <= playerY;
+				a_X <= alpha_X;
+				a_Y <= alpha_Y;
+				// prepare this 
+				column_count <= 1;
+			end
+			
+			// clear_counter_enable is handled by counter underneath
+			
+			if (compute_slice_size) begin
+				// start the computation
+				begin_slice_size_computation <= 1'b1;
+				// when compute_size_complete turns high, it moves to the next state
+				compute_size_complete <= end_slice_size_computation;
+			end
+			
+			if (compute_slice_loc) begin
+				 // if this overflows we'll get a max height slice, slice_size must be 120 or smaller
+				 // this automatically floors the value, so for odd slice_size, the slice will be drawn 0.5 mega-pixel higher
+				slice_loc_Y <= (120 - slice_size) / 2;
+			end
+			
+			if (draw_slice) begin
+				
+			end
+		end
+	end
+	
+	// ----------------------------------------- screen clear counter  -----------------------------------------------
+	
+	wire [14:0] clear_position_count;
+	
+	counter_to_19200 count_pos(
+	
+		.clock(clock),
+		.resetn(clear_counter_enable),
+		
+		.Q(clear_position_count),
+		.count_complete(clear_complete)
+	
+	);
+	
+	// ------------------------------------- screen clear position calculation ----------------------------------------
 
+	always @(posedge clock)
+	begin
+		if (clear_counter_enable) begin
+			// if counter is enabled and not completed yet, increment over all pixels on the screen
+			clear_counter_out_X <= (clear_position_count % 160);
+			clear_counter_out_Y <= (clear_position_count / 160);
+		end
+	end
+
+	// -------------------------------------- output position registers  -----------------------------------------------
+	
+	// registered to keep outputs stable for 1 clock cycle
+	
+	always @(posedge clock)
+	begin
+		if (!resetn)
+			X_draw_pos <= 0;
+		else if (clear_counter_enable)
+			X_draw_pos <= clear_counter_out_X;
+		else
+			X_draw_pos <= 
+	end
+	
+	always @(posedge clock)
+	begin
+		if (!resetn)
+			Y_draw_pos <= 0;
+		else if (clear_counter_enable)
+			Y_draw_pos <= clear_counter_out_Y;
+		else
+			Y_draw_pos <= 
+	end
+	
 	
 endmodule
 
+module counter_to_19200(input clock, resetn, output reg [14:0] Q, output reg count_complete);
+
+	// counter counts from 0 to 19200 and then resets
+
+	always @(posedge clock)
+	begin
+	
+		count_complete = 1'b0;
+	
+		if (resetn == 1'b0)
+			Q <= 0;
+		else if (Q == 15'b100101100000001) begin
+			count_complete = 1'b1;
+			Q <= 0;
+		end else
+			Q <= Q + 1;
+		
+	end
+
+endmodule
