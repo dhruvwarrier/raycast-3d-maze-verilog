@@ -37,7 +37,6 @@ assign end_calc = end_calc;
 control_draw_slice_FSM u1( 	.clock(clock),
 				.resetn(resetn),
 				.begin_calc(begin_calc),
-				.end_int_calc(end_int_calc),
 				.wall_found(wall_found),
 				.reset_datapath(reset_datapath),
 				.find_beta(find_beta), 
@@ -75,7 +74,6 @@ datapath_draw_slice_fsm u2( 	.clock(clock),
 				.angleX(angleX), 
 				.angleY(angleY),
 				.counter_value(counter_value),
-			  	.end_int_calc(end_int_calc),
 				.end_calc(end_calc),
 				.height(proj_height)
 );
@@ -84,7 +82,7 @@ datapath_draw_slice_fsm u2( 	.clock(clock),
 endmodule
 
 
-module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc, end_int_calc,  wall_found,
+module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_found,
 				output reg reset_datapath, find_beta, find_alpha, find_wall_intersection, find_position_diff,  find_dist,
 				find_ABS, lower_dist, rev_fishbowl, proj_height);
 
@@ -174,7 +172,7 @@ module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath,
 				input signed [12:0] playerX, playerY,
 			        input signed [9:0] angle_X, angle_Y,
 			        input [7:0] column_count,
-				output reg  end_int_calc, wall_found, end_calc,
+				output reg  wall_found, end_calc,
 				output [6:0] height
 					);
 	
@@ -186,20 +184,18 @@ module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath,
 		
 //--------------finding wall intersection using raycast modules -----------
 
-wire signed [12:0] wallX_horiz;
-wire signed [12:0] wallX_vert;
 
-find_wall_intersection_horiz h1(.playerX(playerX), .playerY(playerY), .alphaX(alphaX), .alphaY(alpha_Y), .clock(clock), .resetn(resetn), .begin_calc(begin_calc), .wallfound(wall_found_horiz), .end_calc(end_horiz_int_calc));
-find_wall_intersection_vert v1(.playerX(playerX), .playerY(playerY), .alphaX(alphaX), .alphaY(alpha_Y), .clock(clock), .resetn(resetn), .begin_calc(begin_calc), .wallfound(wall_found_vert), .end_calc(end_vert_int_calc));
+find_wall_intersection_horiz h1(.playerX(playerX), .playerY(playerY), .alphaX(alphaX), .alphaY(alphaY), .clock(clock), .resetn(resetn), .begin_calc(find_wall_intersection), .wallX(wall_int_horiz), .wall_found(wall_found_horiz), .end_calc(end_horiz_int_calc));
+find_wall_intersection_vert v1(.playerX(playerX), .playerY(playerY), .alphaX(alphaX), .alphaY(alphaY), .clock(clock), .resetn(resetn), .begin_calc(find_wall_intersection), .wallX(wall_int_vert), .wall_found(wall_found_vert), .end_calc(end_vert_int_calc));
 //-----------cos of alpha -------------------------
-wire signed [9:0] cos_alpha_X;
+wire signed [1:0] cos_alpha_X;
 wire signed [9:0] cos_alpha_Y;
 
 cos_LUT lookup_cos_value_alpha(.angleX(alphaX), .angleY(alphaY), .ratioX(cos_alpha_X), .ratioY(cos_alpha_Y));
 
 //------------cos of beta -------------------------
 
-wire signed [9:0] cos_beta_X;
+wire signed [1:0] cos_beta_X;
 wire signed [9:0] cos_beta_Y;
 
 cos_LUT lookup_cos_value_beta(.angleX(betaX), .angleY(betaY), .ratioX(cos_beta_X), .ratioY(cos_beta_Y));
@@ -210,7 +206,7 @@ wire signed [20:0] distanceX;
 wire signed [20:0] distanceY;
 wire signed [20:0] reverse_fish;
 
-int_fixed_point_div_int divider_dist_x (
+int_fixed_point_div_int divider_dist_x(
 		
 		// performs fixed point division: dist = abs(px-dx) / cos(alpha)
 		
@@ -220,7 +216,7 @@ int_fixed_point_div_int divider_dist_x (
 		.int_out(distanceX)
 	);
 
-int_fixed_point_div_int divider_dist_y (
+int_fixed_point_div_int divider_dist_y(
 		
 		// performs fixed point division: dist = abs(px-ex) / cos(alpha)
 		
@@ -243,12 +239,11 @@ int_fixed_point_mult_int u1(
 /// ----------int multiplied by fixed point module  -------------
 wire signed [5:0] beta_x;
 wire signed [9:0] beta_y;
-
 wire signed [5:0] alpha_x;
 wire signed [9:0] alpha_y;
 
 int_fixed_point_mult_fixed_point m1(
-	.int_in(column_count)
+		.int_in(column_count),
 		.fixed_X(1'b0),
 		.fixed_Y(9'b101110111),
  		.fixed_X_out(beta_x),
@@ -256,7 +251,7 @@ int_fixed_point_mult_fixed_point m1(
 );
 
 int_fixed_point_mult_fixed_point m2(
-	.int_in(column_count)
+		.int_in(column_count),
 		.fixed_X(1'b0),
 		.fixed_Y(9'b101110111),
  		.fixed_X_out(alpha_x),
@@ -301,6 +296,7 @@ int_fixed_point_subtract_fixed_point s2(
 			abs_betaX <= 12'b0;
 			abs_betaY <= 12'b0;
 			alphaX <= 12'b0;
+			alphaY <= 12'b0;
 			positionDiff_X <= 12'b0;
 			positionDiff_Y <= 12'b0;
 			abs_diffX <= 12'b0;
@@ -313,21 +309,21 @@ int_fixed_point_subtract_fixed_point s2(
 			
 	end
 	else begin
-		
+	end_calc <= 1'b0;
 		if (reset_datapath) begin
 			end_calc <= 1'b0;
 		end
 	
 		if (find_beta) begin
-			betaX <= Beta_Y;
+			betaX <= Beta_X;
 			betaY <= Beta_Y;
 		end
 		if(abs_betaX) begin
-			abs_betaX <= abs_betaX ? -(abs_betaX): abs_betaX;
-			abs_betaY <= abs_betaY ? -(abs_betaY): abs_betaY;
+			abs_betaX <= betaX ? -(betaX): betaX;
+			abs_betaY <= betaY ? -(betaY): betaY;
 		end
 		if (find_alpha) begin
-			if (Alpha_X > 6'b111100) begin
+			if (Alpha_X > 9'b101101000) begin
 				alphaX <= Alpha_X - 9'b101101000;
 				alphaY <= Alpha_Y;
 			end
@@ -349,16 +345,13 @@ int_fixed_point_subtract_fixed_point s2(
 				
 				if(~wall_found_horiz && ~wall_found_vert) begin
 					wall_found <= 1'b0; 
-					proj_height <= 7'b0000000; //height = 0 if no wall is found at ray 
-					end_int_calc <= 1'b1; // end intersection calc 
+					proj_height <= 7'b0000000; //height = 0 if no wall is found at ray  
 					end_calc <= 1'b1; //end entire slice calc
 					
 				end
 				
 				else begin
 					wall_found <= 1'b1; 
-					wall_int_horiz <= wallX_horiz; //if wall if found set the X and Y intersection points 
-					wall_int_vert <= wallX_vert;
 					
 				end
 			end
@@ -392,13 +385,11 @@ int_fixed_point_subtract_fixed_point s2(
 		end 
 		
 		if (proj_height) begin
-			if(~end_calc) begin
+			
 				proj_height <= 14'b10001011000000 / rev_fish; //8896/ rev fish 
 				end_calc <= 1'b1;
 			end
-			else begin
-				proj_heignt <= 1'b0; //set height to 0 if calc has ended in an earlier state 	
-			end
+		
 		end
 
 
