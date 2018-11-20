@@ -11,7 +11,6 @@ module int_fixed_point_mult_int
 
 	// here fixed_Y must be the binary representation of the integer to the right of the decimal point
 	// accuracy of fixed point value is assumed to be 5 d.p. so divide by 10^5
-
 	always @(*)
 	begin
 		if (fixed_X > 0)
@@ -54,7 +53,7 @@ module int_fixed_point_mult_fixed_point
 	(
 		input [7:0] int_in,
 		input fixed_X,
-		input [2:0] fixed_Y,
+		input [9:0] fixed_Y,
 		output [5:0] fixed_X_out,
 		output [9:0] fixed_Y_out
 	);
@@ -65,3 +64,31 @@ module int_fixed_point_mult_fixed_point
 	assign fixed_Y_out = ((int_in * fixed_Y) / 1000 - $floor((int_in * fixed_Y) / 1000)) * 1000;
 	
 endmodule
+
+module int_fixed_point_subtract_fixed_point
+	(
+		input [9:0] fixed_X_in_1,
+		input [9:0] fixed_Y_in_1,
+		input [9:0] fixed_X_in_2,
+		input [9:0] fixed_Y_in_2,
+		output reg signed [9:0] fixed_X_out, 
+		output reg signed [9:0] fixed_Y_out
+	);
+
+	always @(*)
+	begin
+		if ((fixed_Y_in_2) > (fixed_Y_in_1)) begin
+			fixed_X_out <= ((fixed_X_in_1-1'b1) - fixed_X_in_2);
+			fixed_Y_out <= (( 1000- fixed_Y_in_2) + fixed_Y_in_1);
+		end
+		
+		else begin
+			fixed_X_out <= fixed_X_in_1 - fixed_X_in_2;
+			fixed_Y_out <= fixed_Y_in_1 - fixed_Y_in_2;
+		end
+	end
+endmodule 
+
+
+
+
