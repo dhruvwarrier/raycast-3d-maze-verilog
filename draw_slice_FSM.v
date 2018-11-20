@@ -69,9 +69,9 @@ datapath_draw_slice_fsm u2( 	.clock(clock),
 				.proj_height(proj_height), 
 				.playerX(playerX), 
 				.playerY(playerY),
-				.angleX(angleX), 
-				.angleY(angleY),
-				.counter_value(counter_value),
+			  	 .angleX(angle_X), 
+			  	 .angleY(angle_Y),
+			  	 .counter_value(column_count),
 				.end_calc(end_calc),
 				.height(proj_height)
 );
@@ -268,7 +268,7 @@ int_fixed_point_subtract_fixed_point s1(
 	.fixed_Y_in_1(beta_y),
 	.fixed_X_in_2(10'b0000011110),
 	.fixed_Y_in_2(10'b0000000000),
-	.fixed_X_out(Beta_x), 
+	.fixed_X_out(Beta_X), 
 	.fixed_Y_out(Beta_Y)
 	);
 
@@ -392,7 +392,7 @@ int_fixed_point_subtract_fixed_point s2(
 
 	end 
 	
-	always @(posedge)
+	always @(posedge clock)
 		begin
 			if(~resetn) 
 				height <= 0;
@@ -400,7 +400,7 @@ int_fixed_point_subtract_fixed_point s2(
 				height <= computed_height;
 			
 		end
-end 
+endmodule 
 
 	
 
