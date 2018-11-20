@@ -34,7 +34,7 @@ module find_slice_height
 
 
 //-------outputs 
-assign height = proj_height; 
+assign slice_size = proj_height; 
 assign end_calc = end_calc;
 
 //call datapath and control here 
@@ -65,7 +65,7 @@ control_draw_slice_FSM u1( 	.clock(clock),
 
 
 
-datapath_draw_slice_fsm u2( .clock(clock),
+datapath_draw_slice_fsm u2( 	.clock(clock),
 				.resetn(resetn), 
 				.begin_calc(begin_calc),
 				.reset_datapath(reset_datapath),
@@ -349,9 +349,24 @@ int_fixed_point_subtract_fixed_point s2(
 		end
 		
 		if (find_wall_intersection) begin
-			wall_int_horiz <= wallX_horiz;
-			wall_int_vert <= wallX_vert;
-			
+
+			if(end_horiz_int_calc && end_vert_int_calc) begin //if both calculations have ended 
+				
+				if(~wall_found_horiz && ~wall_found_vert) begin
+					wall_found <= 1'b0; 
+					proj_height <= 7'b0000000; //height = 0 if no wall is found at ray 
+					end_int_calc <= 1'b1; // end intersection calc 
+					end_calc <= 1'b1; //end entire slice calc
+					
+				end
+				
+				else begin
+					wall_found <= 1'b1; 
+					wall_int_horiz <= wallX_horiz; //if wall if found set the X and Y intersection points 
+					wall_int_vert <= wallX_vert;
+					
+				end
+			end
 			
 		end 
 		
@@ -382,8 +397,13 @@ int_fixed_point_subtract_fixed_point s2(
 		end 
 		
 		if (proj_height) begin
-			proj_height <= 14'b10001011000000 / rev_fish; //8896/ rev fish 
-			end_calc <= 1'b1;
+			if(~end_calc) begin
+				proj_height <= 14'b10001011000000 / rev_fish; //8896/ rev fish 
+				end_calc <= 1'b1;
+			end
+			else begin
+				proj_heignt <= 1'b0; //set height to 0 if calc has ended in an earlier state 	
+			end
 		end
 
 
