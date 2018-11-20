@@ -183,8 +183,8 @@ endmodule
 module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath, find_beta, find_alpha, find_wall_intersection, find_position_diff, find_dist,
 				find_ABS, lower_dist, rev_fishbowl, proj_height, draw_slice,
 				input signed [12:0] playerX, playerY,
-				input [9:0] angleX, angleY,
-				input [7:0] counter_value,
+			        input [9:0] angle_X, angle_Y,
+			        input [7:0] coulumn_count,
 				output reg end_horiz_int_calc, end_vert_int_calc, end_int_calc, wall_found_horiz, wall_found_vert, wall_found, end_calc,
 				output [6:0] height
 					);
@@ -258,7 +258,7 @@ wire signed [5:0] alpha_x;
 wire signed [9:0] alpha_y;
 
 int_fixed_point_mult_fixed_point m1(
-		.int_in(counter_value)
+	.int_in(column_count)
 		.fixed_X(1'b0),
 		.fixed_Y(3'd375),
  		.fixed_X_out(beta_x),
@@ -266,9 +266,9 @@ int_fixed_point_mult_fixed_point m1(
 );
 
 int_fixed_point_mult_fixed_point m2(
-		.int_in(counter_value)
+	.int_in(column_count)
 		.fixed_X(1'b0),
-		.fixed_Y(3'd375),
+		.fixed_Y(9'b101110111),
  		.fixed_X_out(alpha_x),
 		.fixed_Y_out(alpha_y)
 );
@@ -291,8 +291,8 @@ int_fixed_point_subtract_fixed_point s1(
 	);
 
 int_fixed_point_subtract_fixed_point s2(
-	.fixed_X_in_1(angleX + 30),
-	.fixed_Y_in_1(angleY),
+	.fixed_X_in_1(angle_X + 30),
+	.fixed_Y_in_1(angle_Y),
 	.fixed_X_in_2(alpha_x),
 	.fixed_Y_in_2(alpha_y),
 	.fixed_X_out(Alpha_X), 
