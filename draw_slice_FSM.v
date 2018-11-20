@@ -37,7 +37,6 @@ assign end_calc = end_calc;
 control_draw_slice_FSM u1( 	.clock(clock),
 				.resetn(resetn),
 				.begin_calc(begin_calc),
-				.end_calc(end_calc),
 				.end_int_calc(end_int_calc),
 				.wall_found(wall_found),
 				.reset_datapath(reset_datapath),
@@ -132,6 +131,7 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc, end_int
 		
 		reset_datapath = 1'b0;
 		find_beta = 1'b0;
+		abs_beta = 1'b0;
 		find_alpha = 1'b0;
 		find_wall_intersection = 1'b0;
 		find_position_diff = 1'b0;
@@ -144,6 +144,7 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc, end_int
 		case(current_state)
 			S_WAIT: reset_datapath = 1'b1;
 			S_FIND_BETA: find_beta = 1'b1;
+			S_FIND_ABS_BETA: abs_beta = 1'b1;
 			S_FIND_ALPHA: find_alpha = 1'b1;
 			S_FIND_WALL_INTERSECTION: find_wall_intersection = 1'b1;
 			S_FIND_POSITION_DIFF: find_position_diff = 1'b1;
@@ -168,7 +169,7 @@ endmodule
 
 ///////datapath //////
 
-module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath, find_beta, find_alpha, find_wall_intersection, find_position_diff, find_dist,
+module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath, find_beta, abs_beta, find_alpha, find_wall_intersection, find_position_diff, find_dist,
 				find_ABS, lower_dist, rev_fishbowl, proj_height, draw_slice,
 				input signed [12:0] playerX, playerY,
 			        input [9:0] angle_X, angle_Y,
@@ -177,7 +178,7 @@ module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath,
 				output [6:0] height
 					);
 	
-		reg signed [9:0] betaX, betaY, alphaX, alphaY, 
+	reg signed [9:0] betaX, betaY, alphaX, alphaY, abs_betaX, abs_betaY,
 		reg signed [12:0] wall_int_horiz, wall_int_vert, positionDiff_X, positionDiff_Y, distX, distY, abs_distX, abs_distY, lowerDist, rev_fish;
 	reg end_horiz_int_calc, end_vert_int_calc, wall_found_horiz, wall_found_vert;
 		
@@ -215,7 +216,6 @@ int_fixed_point_div_int divider_dist_x (
 		.int_in(positionDiff_X),
 		.fixed_X(cos_alpha_X),
 		.fixed_Y(cos_alpha_Y),
-		
 		.int_out(distanceX)
 	);
 
@@ -297,6 +297,8 @@ int_fixed_point_subtract_fixed_point s2(
 		if (!resetn) begin 
 			betaX <= 12'b0;
 			betaY <= 12'b0;
+			abs_betaX <= 12'b0;
+			abs_betaY <= 12'b0;
 			alphaX <= 12'b0;
 			positionDiff_X <= 12'b0;
 			positionDiff_Y <= 12'b0;
@@ -319,7 +321,10 @@ int_fixed_point_subtract_fixed_point s2(
 			betaX <= Beta_Y;
 			betaY <= Beta_Y;
 		end
-		
+		if(abs_betaX) begin
+			abs_betaX <= abs_betaX ? -(abs_betaX): abs_betaX;
+			abs_betaY <= abs_betaY ? -(abs_betaY): abs_betaY;
+		end
 		if (find_alpha) begin
 			if (Alpha_X > 6'b111100) begin
 				alphaX <= Alpha_X - 9'b101101000;
