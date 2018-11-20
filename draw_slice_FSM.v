@@ -109,7 +109,7 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc, end_int
 	begin: state_table 
 
 		case(current state)
-			S_WAIT: begin_calc ? S_FIND_BETA : S_WAIT;
+			S_WAIT: next state = begin_calc ? S_FIND_BETA : S_WAIT;
 			S_FIND_BETA: next_state = S_FIND_ABS_BETA;
 			S_FIND_ABS_BETA: next_state = S_FIND_ALPHA;
 			S_FIND_ALPHA: next_state = S_FIND_WALL_INTERSECTION;
