@@ -13,14 +13,18 @@ module find_slice_height
 	);
 
 	wire reset_datapath;		//tells datapath to reset values 
-	wire find_beta;			//get beta value from counter
+	wire count_times_increment; 	//multiplies column count by 0.375
+	wire find_beta;			//count_times_increment subtract 30 
 	wire abs_beta;			//take abs of beta
-	wire find_alpha;		//calculate alpha using beta
+	wire angle_add; 		//add 30 to angle 
+	wire find_alpha;		//angle_add subtract count_times_increment 
 	wire find_wall_intersection;    //use raycast modules 
 	wire find_position_diff;	//find difference in position coordinates
+	wire find_cos_alpha;		//find cos of alpha
 	wire find_dist;			//divide by cos alpha
 	wire find_ABS;			//take abs of sifference ABS(Px-Ex)/cos alpha
 	wire lower_dist;		//choose the smaller value
+	wire find_cos_abs_beta;		//take abs of cos beta 
 	wire rev_fishbowl;		//multiply by cos beta
 	wire proj_height;		//divide by 8896 and find proj height  
 	wire wall_found;  		//high if wall is found at angle 
@@ -81,23 +85,27 @@ endmodule
 
 
 module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_found,
-				output reg reset_datapath, find_beta, abs_beta, find_alpha, find_wall_intersection, find_position_diff,  find_dist,
-				find_ABS, lower_dist, rev_fishbowl, proj_height);
+				output reg reset_datapath, count_times_increment, find_beta, abs_beta, angle_add, find_alpha, find_wall_intersection, find_position_diff, find_cos_alpha,  find_dist,
+				find_ABS, lower_dist, find_cos_abs_beta, rev_fishbowl, proj_height);
 
 		reg [3:0] current_state, next_state;
 		
 		
 		localparam S_WAIT = 4'd0,
-					S_FIND_BETA = 4'd1,
-					S_FIND_ABS_BETA = 4'd2,
-					S_FIND_ALPHA = 4'd3,
-					S_FIND_WALL_INTERSECTION = 4'd4,
-					S_FIND_POSITION_DIFF = 4'd5,
-					S_FIND_DIST = 4'd6,
-					S_FIND_ABS = 4'd7,		
-					S_LOWER_DIST = 4'd8,
-					S_REV_FISHBOWL = 4'd9,
-					S_PROJ_HEIGHT = 4'd10;
+					S_COUNT_TIMES_INCREMENT = 4'd1,
+					S_FIND_BETA = 4'd2,
+					S_FIND_ABS_BETA = 4'd3,
+					S_ANGLE_ADD = 4'd4,
+					S_FIND_ALPHA = 4'd5,
+					S_FIND_WALL_INTERSECTION = 4'd6,
+					S_FIND_POSITION_DIFF = 4'd7,
+					S_FIND_COS_ALPHA = 4'd8,
+					S_FIND_DIST = 4'd9,
+					S_FIND_ABS = 4'd10,		
+					S_LOWER_DIST = 4'd11,
+					S_FIND_COS_ABS_BETA = 4'd12;
+					S_REV_FISHBOWL = 4'd13,
+					S_PROJ_HEIGHT = 4'd14;
 					
 ///state table /////
 
@@ -105,15 +113,19 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_f
 	begin: state_table 
 
 		case(current_state)
-			S_WAIT: next_state = begin_calc ? S_FIND_BETA : S_WAIT;
+			S_WAIT: next_state = begin_calc ? S_COUNT_TIMES_INCREMENT : S_WAIT;
+			S_COUNT_TIMES_INCREMENT: next_state = S_FIND_BETA;
 			S_FIND_BETA: next_state = S_FIND_ABS_BETA;
-			S_FIND_ABS_BETA: next_state = S_FIND_ALPHA;
+			S_FIND_ABS_BETA: next_state = S_ANGLE_ADD;
+			S_ANGLE_ADD: next_state = S_FIND_ALPHA; 
 			S_FIND_ALPHA: next_state = S_FIND_WALL_INTERSECTION;
 			S_FIND_WALL_INTERSECTION: next_state = wall_found ? S_FIND_POSITION_DIFF : S_WAIT;
-			S_FIND_POSITION_DIFF: next_state = S_FIND_DIST;		
+			S_FIND_POSITION_DIFF: next_state = S_FIND_COS_ALPHA;	
+			S_FIND_COS_ALPHA: next_state = S_FIND_DIST;
 			S_FIND_DIST: next_state = S_FIND_ABS;
 			S_FIND_ABS: next_state = S_LOWER_DIST;
-			S_LOWER_DIST: next_state = S_REV_FISHBOWL;
+			S_LOWER_DIST: next_state = S_FIND_COS_ABS_BETA;
+			S_FIND_COS_ABS_BETA: next_state = S_REV_FISHBOWL;
 			S_REV_FISHBOWL: next_state = S_PROJ_HEIGHT;
 			S_PROJ_HEIGHT: next_state =  end_calc ? S_WAIT : S_PROJ_HEIGHT;
 			default: next_state = S_WAIT;
@@ -126,27 +138,35 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_f
 	begin:  control_signals 
 		
 		reset_datapath = 1'b0;
+		count_times_increment = 1'b0;
 		find_beta = 1'b0;
 		abs_beta = 1'b0;
+		angle_add = 1'b0;
 		find_alpha = 1'b0;
 		find_wall_intersection = 1'b0;
 		find_position_diff = 1'b0;
+		find_cos_alpha = 1'b0;
 		find_dist= 1'b0;
 		find_ABS= 1'b0;	 	
  		lower_dist = 1'b0;
+		find_cos_abs_beta = 1'b0;
  		rev_fishbowl = 1'b0;
  		proj_height = 1'b0;
 
 		case(current_state)
 			S_WAIT: reset_datapath = 1'b1;
+			S_COUNT_TIMES_INCREMENT = 1'b1;
 			S_FIND_BETA: find_beta = 1'b1;
 			S_FIND_ABS_BETA: abs_beta = 1'b1;
+			S_ANGLE_ADD: angle_add = 1'b1;
 			S_FIND_ALPHA: find_alpha = 1'b1;
 			S_FIND_WALL_INTERSECTION: find_wall_intersection = 1'b1;
 			S_FIND_POSITION_DIFF: find_position_diff = 1'b1;
+			S_FIND_COS_ALPHA: find_cos_alpha = 1'b1;
 			S_FIND_DIST: find_dist= 1'b1;
 			S_FIND_ABS: find_ABS= 1'b1;		
 			S_LOWER_DIST: lower_dist = 1'b1;
+			S_FIND_COS_ABS_BETA: find_cos_abs_beta = 1'b1;
 			S_REV_FISHBOWL: rev_fishbowl = 1'b1;
 			S_PROJ_HEIGHT: proj_height = 1'b1;
 		endcase
@@ -165,8 +185,9 @@ endmodule
 
 ///////datapath //////
 
-module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath, find_beta, abs_beta, find_alpha, find_wall_intersection, find_position_diff, find_dist,
-				find_ABS, lower_dist, rev_fishbowl, proj_height, draw_slice,
+module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath, find_beta, abs_beta,
+			       angle_add, find_alpha, find_wall_intersection, find_position_diff, find_cos_alpha, find_dist,
+				find_ABS, lower_dist, find_cos_abs_beta, rev_fishbowl, proj_height,
 				input signed [12:0] playerX, playerY,
 			        input signed [9:0] angle_X, angle_Y,
 			        input [7:0] column_count,
