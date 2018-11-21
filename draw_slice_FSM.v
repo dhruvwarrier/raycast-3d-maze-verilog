@@ -85,7 +85,8 @@ endmodule
 
 
 module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_found,
-				output reg reset_datapath, count_times_increment, find_beta, abs_beta, angle_add, find_alpha, find_wall_intersection, find_position_diff, find_cos_alpha,  find_dist,
+				output reg reset_datapath, count_times_increment, find_beta, abs_beta, angle_add, find_alpha, 
+			      find_wall_intersection, find_position_diff, find_cos_alpha,  find_dist,
 				find_ABS, lower_dist, find_cos_abs_beta, rev_fishbowl, proj_height);
 
 		reg [3:0] current_state, next_state;
@@ -177,7 +178,7 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_f
 	always @(posedge clock)
 	begin: state_FFs
 		if(!resetn)
-			current_state <=S_WAIT;
+			current_state <= S_WAIT;
 		else 
 			current_state <= next_state;
 	end
@@ -196,8 +197,11 @@ module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath,
 					);
 	
 	reg signed [9:0] betaX, betaY, alphaX, alphaY, abs_betaX, abs_betaY;
-	reg signed [12:0] wall_int_horiz, wall_int_vert, positionDiff_X, positionDiff_Y, distX, distY, abs_distX, abs_distY, lowerDist, rev_fish;
-	reg end_horiz_int_calc, end_vert_int_calc, wall_found_horiz, wall_found_vert;
+	wire signed [20:0] wall_int_horiz, wall_int_vert;
+	reg [9:0]  final_count_times_increment_X, final_count_times_increment_Y, angle_add_X, angle_add_Y;
+	reg signed [20:0]  final_cos_alpha_X, final_cos_alpha_Y, positionDiff_X, positionDiff_Y,
+	distX, distY, abs_distX, abs_distY, lowerDist, final_cos_abs_beta_X, final_cos_abs_beta_Y, rev_fish;
+	wire end_horiz_int_calc, end_vert_int_calc, wall_found_horiz, wall_found_vert;
 	reg [6:0] computed_height;	
 		
 //--------------finding wall intersection using raycast modules -----------
@@ -207,14 +211,14 @@ find_wall_intersection_horiz h1(.playerX(playerX), .playerY(playerY), .alphaX(al
 find_wall_intersection_vert v1(.playerX(playerX), .playerY(playerY), .alphaX(alphaX), .alphaY(alphaY), .clock(clock), .resetn(resetn), .begin_calc(find_wall_intersection), .wallX(wall_int_vert), .wall_found(wall_found_vert), .end_calc(end_vert_int_calc));
 //-----------cos of alpha -------------------------
 wire signed [1:0] cos_alpha_X;
-wire signed [9:0] cos_alpha_Y;
+wire signed [17:0] cos_alpha_Y;
 
 cos_LUT lookup_cos_value_alpha(.angleX(alphaX), .angleY(alphaY), .ratioX(cos_alpha_X), .ratioY(cos_alpha_Y));
 
 //------------cos of beta -------------------------
 
 wire signed [1:0] cos_beta_X;
-wire signed [9:0] cos_beta_Y;
+wire signed [17:0] cos_beta_Y;
 
 cos_LUT lookup_cos_value_beta(.angleX(betaX), .angleY(betaY), .ratioX(cos_beta_X), .ratioY(cos_beta_Y));
 
@@ -229,8 +233,8 @@ int_fixed_point_div_int divider_dist_x(
 		// performs fixed point division: dist = abs(px-dx) / cos(alpha)
 		
 		.int_in(positionDiff_X),
-		.fixed_X(cos_alpha_X),
-		.fixed_Y(cos_alpha_Y),
+		.fixed_X(final_cos_alpha_X),
+		.fixed_Y(final_cos_alpha_X),
 		.int_out(distanceX)
 	);
 
@@ -239,8 +243,8 @@ int_fixed_point_div_int divider_dist_y(
 		// performs fixed point division: dist = abs(px-ex) / cos(alpha)
 		
 		.int_in(positionDiff_Y),
-		.fixed_X(cos_beta_X),
-		.fixed_Y(cos_beta_Y),		
+		.fixed_X(final_cos_alpha_X),
+		.fixed_Y(final_cos_alpha_X),		
 		.int_out(distanceY)
 	);
 
@@ -249,32 +253,25 @@ int_fixed_point_div_int divider_dist_y(
 int_fixed_point_mult_int u1(
 		
 		.int_in(lowerDist), 
-		.fixed_X(cos_beta_X), 
-		.fixed_Y(cos_beta_Y), 
+		.fixed_X(final_cos_abs_beta_X), 
+		.fixed_Y(final_cos_abs_beta_Y), 
 		.int_out(reverse_fish)
 	);
 
 /// ----------int multiplied by fixed point module  -------------
-wire signed [5:0] beta_x;
-wire signed [9:0] beta_y;
-wire signed [5:0] alpha_x;
-wire signed [9:0] alpha_y;
+wire signed [5:0] count_times_increment_x;
+wire signed [9:0] count_times_increment_y;
+
 
 int_fixed_point_mult_fixed_point m1(
 		.int_in(column_count),
 		.fixed_X(1'b0),
-		.fixed_Y(9'b101110111),
- 		.fixed_X_out(beta_x),
-		.fixed_Y_out(beta_y)
+		.fixed_Y(10'b0101110111),
+ 		.fixed_X_out(count_times_increment_x),
+		.fixed_Y_out(count_times_increment_y)
 );
 
-int_fixed_point_mult_fixed_point m2(
-		.int_in(column_count),
-		.fixed_X(1'b0),
-		.fixed_Y(9'b101110111),
- 		.fixed_X_out(alpha_x),
-		.fixed_Y_out(alpha_y)
-);
+
 
 //------fixed point subtracted by fixed point------------
 
@@ -285,8 +282,8 @@ wire signed [9:0] Alpha_Y;
 
 
 int_fixed_point_subtract_fixed_point s1(
-	.fixed_X_in_1(beta_x),
-	.fixed_Y_in_1(beta_y),
+	.fixed_X_in_1(count_times_increment_x),
+	.fixed_Y_in_1(count_times_increment_y),
 	.fixed_X_in_2(10'b0000011110),
 	.fixed_Y_in_2(10'b0000000000),
 	.fixed_X_out(Beta_X), 
@@ -294,10 +291,10 @@ int_fixed_point_subtract_fixed_point s1(
 	);
 
 int_fixed_point_subtract_fixed_point s2(
-	.fixed_X_in_1(angle_X + 30),
-	.fixed_Y_in_1(angle_Y),
-	.fixed_X_in_2(alpha_x),
-	.fixed_Y_in_2(alpha_y),
+	.fixed_X_in_1(angle_add_X),
+	.fixed_Y_in_1(angle_add_Y),
+	.fixed_X_in_2(count_times_increment_x),
+	.fixed_Y_in_2(count_times_increment_x),
 	.fixed_X_out(Alpha_X), 
 	.fixed_Y_out(Alpha_Y)
 	);
@@ -309,19 +306,27 @@ int_fixed_point_subtract_fixed_point s2(
 	begin 
 		
 		if (!resetn) begin 
-			betaX <= 12'b0;
-			betaY <= 12'b0;
-			abs_betaX <= 12'b0;
-			abs_betaY <= 12'b0;
+			final_count_times_increment_X <= 10'b0;
+			final_count_times_increment_Y <= 10'b0;
+			betaX <= 10'b0;
+			betaY <= 10'b0;
+			abs_betaX <= 10'b0;
+			abs_betaY <= 10'b0;
+			angle_add_X <= 10'b0;
+			angle_add_Y <= 10'b0;
 			alphaX <= 12'b0;
 			alphaY <= 12'b0;
 			positionDiff_X <= 12'b0;
 			positionDiff_Y <= 12'b0;
+			final_cos_alpha_X  <= 6'b0;
+			final_cos_alpha_Y <= 18'b0;
 			distX <= 12'b0;
 			distY <= 12'b0;
 			abs_distX <= 12'b0;
 			abs_distY <= 12'b0;
 			lowerDist <= 12'b0;
+			final_cos_abs_beta_X <= 6'b0;
+			final_cos_abs_beta_Y <= 18'b0;
 			rev_fish <= 12'b0;
 			height <= 12'b0;
 			
@@ -330,6 +335,10 @@ int_fixed_point_subtract_fixed_point s2(
 	end_calc <= 1'b0;
 		if (reset_datapath) begin
 			end_calc <= 1'b0;
+		end
+		if (count_times_increment) begin 
+			final_count_times_increment_X <= count_times_increment_x;
+			final_count_times_increment_Y <= count_times_increment_y;
 		end
 	
 		if (find_beta) begin
@@ -340,7 +349,15 @@ int_fixed_point_subtract_fixed_point s2(
 			abs_betaX <= betaX ? -(betaX): betaX;
 			abs_betaY <= betaY ? -(betaY): betaY;
 		end
+		
+		if (angle_add) begin
+			angle_add_X <= angle_X + 30;
+			angle_add_Y <= angle_Y;
+		
+		end
+		
 		if (find_alpha) begin
+			
 			if (Alpha_X > 9'b101101000) begin
 				alphaX <= Alpha_X - 9'b101101000;
 				alphaY <= Alpha_Y;
@@ -380,6 +397,10 @@ int_fixed_point_subtract_fixed_point s2(
 			positionDiff_X <= playerX - wall_int_horiz;
 			positionDiff_Y <= playerX - wall_int_vert;
 		end
+		if (find_cos_alpha) begin
+			final_cos_alpha_X <= cos_alpha_X;
+			final_cos_alpha_Y <= cos_alpha_Y;
+		end
 		
 		if (find_dist) begin 
 			distX <= distanceX;
@@ -397,6 +418,12 @@ int_fixed_point_subtract_fixed_point s2(
 			else 
 				lowerDist <= distY;
 		end 
+		
+		if (find_cos_abs_beta) begin
+			final_cos_abs_beta_X <= cos_beta_X;
+			final_cos_abs_beta_Y <= cos_beta_Y;
+		
+		end
 		
 		if (rev_fishbowl) begin
 			rev_fish <= reverse_fish;
