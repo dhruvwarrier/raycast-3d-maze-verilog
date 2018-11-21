@@ -104,7 +104,7 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_f
 					S_FIND_DIST = 4'd9,
 					S_FIND_ABS = 4'd10,		
 					S_LOWER_DIST = 4'd11,
-					S_FIND_COS_ABS_BETA = 4'd12;
+					S_FIND_COS_ABS_BETA = 4'd12,
 					S_REV_FISHBOWL = 4'd13,
 					S_PROJ_HEIGHT = 4'd14;
 					
