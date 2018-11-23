@@ -112,7 +112,7 @@ module draw_frame
 		// ------------------- inform the FSM that computations, clearing, or drawing is complete ---------------------
 		
 		.clear_complete(clear_complete),
-		.compute_size_complete(compute_slice_complete),
+		.compute_size_complete(compute_size_complete),
 		.draw_slice_complete(draw_slice_complete),
 		.draw_frame_complete(draw_frame_complete),
 		
@@ -203,7 +203,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 									input signed [12:0] playerX, playerY, input signed [9:0] angle_X, angle_Y,
 									input [2:0] color_in,
 									output reg [7:0] X_draw_pos, output reg [6:0] Y_draw_pos, output [2:0] color_out,
-									output clear_complete, compute_size_complete, draw_slice_complete, 
+									output reg clear_complete, compute_size_complete, draw_slice_complete, 
 									draw_frame_complete, draw_enable);
 	
 	// screen size in X
@@ -311,8 +311,8 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 				// store player attributes to keep them constant for this frame
 				Px <= playerX;
 				Py <= playerY;
-				a_X <= alpha_X;
-				a_Y <= alpha_Y;
+				a_X <= angle_X;
+				a_Y <= angle_Y;
 				// prepare the column count, which must count from 1 to 160
 				column_count <= 1;
 			end
