@@ -26,6 +26,7 @@ module find_slice_height
 	wire wall_found;  		//high if wall is found at angle 
 	wire end_int_calc;		//indicates intersection calculation has ended
 	
+	wire end_horiz_calc, end_vert_calc;
 
 
 //-------outputs 
@@ -47,7 +48,9 @@ control_draw_slice_FSM u1( 	.clock(clock),
 				.lower_dist(lower_dist), 
 				.rev_fishbowl(rev_fishbowl), 
 				.proj_height(proj_height), 
-				.end_calc(end_calc)
+				.end_calc(end_calc),
+				.end_horiz_calc(end_horiz_calc),
+				.end_vert_calc(end_vert_calc)
 				);
 
 
@@ -73,14 +76,16 @@ datapath_draw_slice_fsm u2( 	.clock(clock),
 			  	 .angleY(angle_Y),
 			  	 .counter_value(column_count),
 				.end_calc(end_calc),
-				.height(proj_height)
+				.height(proj_height),
+				.end_horiz_calc(end_horiz_calc),
+				.end_vert_calc(end_vert_calc)
 );
 
 
 endmodule
 
 
-module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_found,
+module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_found, end_horiz_calc, end_vert_calc,
 				output reg reset_datapath, find_beta, abs_beta, find_alpha, find_wall_intersection, find_position_diff,  find_dist,
 				find_ABS, lower_dist, rev_fishbowl, proj_height);
 
@@ -109,7 +114,7 @@ module control_draw_slice_FSM(input clock, resetn, begin_calc, end_calc,  wall_f
 			S_FIND_BETA: next_state = S_FIND_ABS_BETA;
 			S_FIND_ABS_BETA: next_state = S_FIND_ALPHA;
 			S_FIND_ALPHA: next_state = S_FIND_WALL_INTERSECTION;
-			S_FIND_WALL_INTERSECTION: next_state = wall_found ? S_FIND_POSITION_DIFF : S_WAIT;
+			S_FIND_WALL_INTERSECTION: next_state = (wall_found && end_horiz_calc && end_vert_calc)? S_FIND_POSITION_DIFF : S_WAIT;
 			S_FIND_POSITION_DIFF: next_state = S_FIND_DIST;		
 			S_FIND_DIST: next_state = S_FIND_ABS;
 			S_FIND_ABS: next_state = S_LOWER_DIST;
@@ -171,29 +176,34 @@ module datapath_draw_slice_fsm( input clock, resetn, begin_calc, reset_datapath,
 			        input signed [9:0] angle_X, angle_Y,
 			        input [7:0] column_count,
 				output reg  wall_found, end_calc,
-				output reg [6:0] height
+				output reg [6:0] height,
+				output end_horiz_calc, end_vert_calc
 					);
 	
 	reg signed [9:0] betaX, betaY, alphaX, alphaY, abs_betaX, abs_betaY;
-	reg signed [12:0] wall_int_horiz, wall_int_vert, positionDiff_X, positionDiff_Y, distX, distY, abs_distX, abs_distY, lowerDist, rev_fish;
-	reg end_horiz_int_calc, end_vert_int_calc, wall_found_horiz, wall_found_vert;
+	reg signed [20:0] distX, distY, abs_distX, abs_distY, lowerDist, rev_fish, positionDiff_X, positionDiff_Y;
+	wire signed [12:0] wall_int_horiz, wall_int_vert;
+	wire end_horiz_int_calc, end_vert_int_calc, wall_found_horiz, wall_found_vert;
 	reg [6:0] computed_height;	
+	
+	assign end_horiz_calc = end_horiz_int_calc;
+	assign end_vert_calc = end_vert_int_calc;
 		
 //--------------finding wall intersection using raycast modules -----------
 
 
-find_wall_intersection_horiz h1(.playerX(playerX), .playerY(playerY), .alphaX(alphaX), .alphaY(alphaY), .clock(clock), .resetn(resetn), .begin_calc(find_wall_intersection), .wallX(wall_int_horiz), .wall_found(wall_found_horiz), .end_calc(end_horiz_int_calc));
-find_wall_intersection_vert v1(.playerX(playerX), .playerY(playerY), .alphaX(alphaX), .alphaY(alphaY), .clock(clock), .resetn(resetn), .begin_calc(find_wall_intersection), .wallX(wall_int_vert), .wall_found(wall_found_vert), .end_calc(end_vert_int_calc));
+find_wall_intersection_horiz h1(.playerX(playerX), .playerY(playerY), .alpha_X(alphaX), .alpha_Y(alphaY), .clock(clock), .resetn(resetn), .begin_calc(find_wall_intersection), .wallX(wall_int_horiz), .wall_found(wall_found_horiz), .end_calc(end_horiz_int_calc));
+find_wall_intersection_vert v1(.playerX(playerX), .playerY(playerY), .alpha_X(alphaX), .alpha_Y(alphaY), .clock(clock), .resetn(resetn), .begin_calc(find_wall_intersection), .wallX(wall_int_vert), .wall_found(wall_found_vert), .end_calc(end_vert_int_calc));
 //-----------cos of alpha -------------------------
 wire signed [1:0] cos_alpha_X;
-wire signed [9:0] cos_alpha_Y;
+wire signed [17:0] cos_alpha_Y;
 
 cos_LUT lookup_cos_value_alpha(.angleX(alphaX), .angleY(alphaY), .ratioX(cos_alpha_X), .ratioY(cos_alpha_Y));
 
 //------------cos of beta -------------------------
 
 wire signed [1:0] cos_beta_X;
-wire signed [9:0] cos_beta_Y;
+wire signed [17:0] cos_beta_Y;
 
 cos_LUT lookup_cos_value_beta(.angleX(betaX), .angleY(betaY), .ratioX(cos_beta_X), .ratioY(cos_beta_Y));
 
@@ -234,15 +244,15 @@ int_fixed_point_mult_int u1(
 	);
 
 /// ----------int multiplied by fixed point module  -------------
-wire signed [5:0] beta_x;
-wire signed [9:0] beta_y;
-wire signed [5:0] alpha_x;
-wire signed [9:0] alpha_y;
+wire [5:0] beta_x;
+wire signed [10:0] beta_y;
+wire [5:0] alpha_x;
+wire signed [10:0] alpha_y;
 
 int_fixed_point_mult_fixed_point m1(
 		.int_in(column_count),
 		.fixed_X(1'b0),
-		.fixed_Y(9'b101110111),
+		.fixed_Y(10'b0101110111),
  		.fixed_X_out(beta_x),
 		.fixed_Y_out(beta_y)
 );
@@ -250,17 +260,17 @@ int_fixed_point_mult_fixed_point m1(
 int_fixed_point_mult_fixed_point m2(
 		.int_in(column_count),
 		.fixed_X(1'b0),
-		.fixed_Y(9'b101110111),
+		.fixed_Y(10'b0101110111),
  		.fixed_X_out(alpha_x),
 		.fixed_Y_out(alpha_y)
 );
 
 //------fixed point subtracted by fixed point------------
 
-wire signed [9:0] Beta_X;
-wire signed [9:0] Beta_Y;
-wire signed [9:0] Alpha_X;
-wire signed [9:0] Alpha_Y;
+wire signed [10:0] Beta_X;
+wire signed [10:0] Beta_Y;
+wire signed [10:0] Alpha_X;
+wire signed [10:0] Alpha_Y;
 
 
 int_fixed_point_subtract_fixed_point s1(
@@ -273,7 +283,7 @@ int_fixed_point_subtract_fixed_point s1(
 	);
 
 int_fixed_point_subtract_fixed_point s2(
-	.fixed_X_in_1(angle_X + 30),
+	.fixed_X_in_1(angle_X + 5'b11110),
 	.fixed_Y_in_1(angle_Y),
 	.fixed_X_in_2(alpha_x),
 	.fixed_Y_in_2(alpha_y),
@@ -303,6 +313,7 @@ int_fixed_point_subtract_fixed_point s2(
 			lowerDist <= 12'b0;
 			rev_fish <= 12'b0;
 			height <= 12'b0;
+			//wall_found <= 1'b0;
 			
 	end
 	else begin
