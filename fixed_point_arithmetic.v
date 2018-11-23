@@ -55,24 +55,24 @@ module int_fixed_point_mult_fixed_point
 		input fixed_X,
 		input [9:0] fixed_Y,
 		output [5:0] fixed_X_out,
-		output [9:0] fixed_Y_out
+		output signed [10:0] fixed_Y_out
 	);
 	
 	// assuming here a 3 d.p. accuracy since all multiples of 0.375 can be represnted perfectly by 3 digit integers
 	// on the right
 	assign fixed_X_out = (int_in * fixed_X) + $floor((int_in * fixed_Y) / 1000);
-	assign fixed_Y_out = ((int_in * fixed_Y) / 1000 - $floor((int_in * fixed_Y) / 1000)) * 1000;
+	assign fixed_Y_out = (int_in * fixed_Y > 1000) ? ((int_in * fixed_Y) - 1000) : (int_in * fixed_Y);
 	
 endmodule
 
 module int_fixed_point_subtract_fixed_point
 	(
-		input [9:0] fixed_X_in_1,
-		input [9:0] fixed_Y_in_1,
-		input [9:0] fixed_X_in_2,
-		input [9:0] fixed_Y_in_2,
-		output reg signed [9:0] fixed_X_out, 
-		output reg signed [9:0] fixed_Y_out
+		input signed [10:0] fixed_X_in_1,
+		input signed [10:0] fixed_Y_in_1,
+		input signed [10:0] fixed_X_in_2,
+		input signed [10:0] fixed_Y_in_2,
+		output reg signed [10:0] fixed_X_out, 
+		output reg signed [10:0] fixed_Y_out
 	);
 
 	always @(*)
