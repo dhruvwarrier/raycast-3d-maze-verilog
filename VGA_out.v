@@ -1,5 +1,5 @@
 
-module VGA_out
+module fill
 	(
 		CLOCK_50,						//	On Board 50 MHz
 		SW,                        // On Board switches
