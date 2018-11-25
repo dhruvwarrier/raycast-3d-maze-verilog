@@ -13,10 +13,12 @@ module int_fixed_point_mult_int
 	// accuracy of fixed point value is assumed to be 5 d.p. so divide by 10^5
 	always @(*)
 	begin
-		if (fixed_X > 0)
-			int_out <= int_in * fixed_X + ((int_in * fixed_Y) / 100000);
+		if (fixed_X == 256)
+			int_out <= int_in * 0 - ((int_in * fixed_Y)/ 100000);
+		else if (fixed_X <0)
+			int_out <= int_in * fixed_X - ((int_in * fixed_Y)/ 100000);
 		else 
-			int_out <= int_in * fixed_X - ((int_in * fixed_Y) / 100000);
+			int_out <= int_in * fixed_X + ((int_in * fixed_Y) / 100000);
 	end
 
 endmodule
