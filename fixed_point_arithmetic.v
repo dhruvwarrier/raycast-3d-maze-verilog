@@ -34,15 +34,17 @@ module int_fixed_point_div_int
 	always @(*)
 	begin
 	
-		if (fixed_X == 10'b0 && fixed_Y != 18'b0)
-			int_out <= ((int_in* 100000) / fixed_Y );
-		else if (fixed_X != 10'b0 && fixed_Y == 18'b0)
-			int_out <= int_in / fixed_X;
-		else if (fixed_X == 10'b0 && fixed_Y == 18'b0)
+		if (fixed_X == 10'b0 && fixed_Y == 18'b0)
 			int_out <= 21'b011111111111111111111; // incredibly high positive value
+		else if (fixed_X <0 && int_in >=0)
+			int_out <= (int_in * 100000)/ (fixed_X * 100000 - fixed_Y);
+		else if (fixed_X == 256)
+			int_out <= ((int_in * 100000)/ (-fixed_Y));
+		else if (fixed_X <0 && int_in <0)
+			int_out <= (-int_in * 100000)/ (-fixed_X * 100000 + fixed_Y);
 		else
-			int_out <= int_in / fixed_X + (int_in* 100000) / fixed_Y;
-	
+			int_out <= (int_in * 100000)/ (fixed_X * 100000 + fixed_Y);
+
 	end 
 
 endmodule
@@ -57,33 +59,38 @@ module int_fixed_point_mult_fixed_point
 		input fixed_X,
 		input [9:0] fixed_Y,
 		output [5:0] fixed_X_out,
-		output signed [10:0] fixed_Y_out
+		output [9:0] fixed_Y_out
 	);
 	
 	// assuming here a 3 d.p. accuracy since all multiples of 0.375 can be represnted perfectly by 3 digit integers
 	// on the right
 	assign fixed_X_out = (int_in * fixed_X) + $floor((int_in * fixed_Y) / 1000);
-	assign fixed_Y_out = (int_in * fixed_Y > 1000) ? ((int_in * fixed_Y) - 1000) : (int_in * fixed_Y);
+	assign fixed_Y_out = ((int_in * fixed_Y) >= (1000*fixed_X_out)) ? ((int_in * fixed_Y) -(1000*fixed_X_out)) : (int_in*fixed_Y);
 	
 endmodule
 
 module int_fixed_point_subtract_fixed_point
 	(
-		input signed [10:0] fixed_X_in_1,
-		input signed [10:0] fixed_Y_in_1,
-		input signed [10:0] fixed_X_in_2,
-		input signed [10:0] fixed_Y_in_2,
+		input [9:0] fixed_X_in_1,
+		input [9:0] fixed_Y_in_1,
+		input [9:0] fixed_X_in_2,
+		input [9:0] fixed_Y_in_2,
 		output reg signed [10:0] fixed_X_out, 
 		output reg signed [10:0] fixed_Y_out
 	);
 
 	always @(*)
 	begin
-		if ((fixed_Y_in_2) > (fixed_Y_in_1)) begin
-			fixed_X_out <= ((fixed_X_in_1-1'b1) - fixed_X_in_2);
+		if (((fixed_Y_in_2) > (fixed_Y_in_1)) && ((fixed_X_in_1) > (fixed_X_in_2))) begin
+			if ((fixed_X_in_1) < (fixed_X_in_2)) begin
+				fixed_X_out <= ((fixed_X_in_1+1) - fixed_X_in_2);
+				fixed_Y_out <= (( 1000- fixed_Y_in_2) + fixed_Y_in_1);
+			end
+			else begin
+			fixed_X_out <= ((fixed_X_in_1-1) - fixed_X_in_2);
 			fixed_Y_out <= (( 1000- fixed_Y_in_2) + fixed_Y_in_1);
+			end
 		end
-		
 		else begin
 			fixed_X_out <= fixed_X_in_1 - fixed_X_in_2;
 			fixed_Y_out <= fixed_Y_in_1 - fixed_Y_in_2;
