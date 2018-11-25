@@ -69,7 +69,7 @@ module int_fixed_point_mult_fixed_point
 	
 endmodule
 
-module int_fixed_point_subtract_fixed_point
+module fixed_point_subtract_fixed_point
 	(
 		input [9:0] fixed_X_in_1,
 		input [9:0] fixed_Y_in_1,
