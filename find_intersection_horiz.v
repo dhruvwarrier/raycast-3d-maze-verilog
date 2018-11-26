@@ -10,6 +10,7 @@ module find_wall_intersection_horiz
 		input begin_calc,									// begins calculation of wall intersection
 		output signed [12:0] wallX, wallY,			// calculated wall X and Y for this ray
 		output wall_found,								// high if wall is found, low if not
+		output maze_bounds_reached,					// high if the ray reached maze bounds without intersecting with the grid 
 		output end_calc									// calculation has ended, whether wall found or not
 	);
 	
@@ -44,6 +45,7 @@ module find_wall_intersection_horiz
 	
 	// wall_found is always reached_wall, if no wall is reached then end_calc is high but wall_found is 0
 	assign wall_found = reached_wall;
+	assign maze_bounds_reached = reached_maze_bounds;
 	
 	// high for one cycle when either wall is reached or bounds are reached
 	assign end_calc = reached_wall || reached_maze_bounds;
