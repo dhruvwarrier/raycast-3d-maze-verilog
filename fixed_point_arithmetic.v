@@ -86,6 +86,10 @@ module fixed_point_subtract_fixed_point
 				fixed_X_out <= ((fixed_X_in_1) - fixed_X_in_2);
 				fixed_Y_out <= ((fixed_Y_in_2) - fixed_Y_in_1);
 			end
+			else if (fixed_X_in_1 == fixed_X_in_2) begin
+				fixed_X_out <= 512;
+				fixed_Y_out <= (fixed_Y_in_2 - fixed_Y_in_1);
+			end
 			else begin
 				fixed_X_out <= ((fixed_X_in_1-1) - fixed_X_in_2);
 				fixed_Y_out <= (( 1000- fixed_Y_in_2) + fixed_Y_in_1);
