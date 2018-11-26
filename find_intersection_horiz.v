@@ -3,8 +3,8 @@
 module find_wall_intersection_horiz
 	(
 		input signed [12:0] playerX, playerY, 		// player's current X and Y position
-		input signed [9:0] alpha_X, 					// angle of ray currently being cast in fixed point format 
-		input signed [9:0] alpha_Y,					// alpha_X is the left of the decimal point, alpha_Y is the right
+		input [9:0] alpha_X, 							// angle of ray currently being cast in fixed point format 
+		input [9:0] alpha_Y,								// alpha_X is the left of the decimal point, alpha_Y is the right
 		input clock, 										// On board clock, 50 MHz for the DE1_SoC
 		input resetn, 										// active-low, resets the FSM and clears the datapath registers
 		input begin_calc,									// begins calculation of wall intersection
