@@ -37,11 +37,14 @@ module find_slice_size
 	// tells the datapath to find the grid intersections of the casted ray
 	wire find_ray_grid_intersections;
 	
-	// tells the datapath to find the distances corresponding to each of the horizontal and vertical intersections
+	// tells the datapath to take the absolute values of the differences between playerX and wallXs
 	wire find_distances_0;
 	
-	// tells the datapath to calulate the absolute value of each of the distances
+	// tells the datapath to find the distances corresponding to each of the horizontal and vertical intersections
 	wire find_distances_1;
+	
+	// tells the datapath to calulate the absolute value of each of the distances
+	wire find_distances_2;
 	
 	// tells the datapath to find the closer distance
 	wire find_closer_distance;
@@ -50,7 +53,10 @@ module find_slice_size
 	wire perform_reverse_fishbowl;
 	
 	// tells the datapath to use the un-distorted distance to project the walls on the screen/viewport
-	wire perform_project_to_screen;
+	wire perform_project_to_screen_0;
+	
+	// tells the datapath to limit the projected slice size to a maximum of 120
+	wire perform_project_to_screen_1;
 	
 	// ------------------------------------------ Datapath to control --------------------------------------------------
 	
@@ -66,7 +72,7 @@ module find_slice_size
 	// skip this slice is no wall was found after casting a ray
 	assign skip_this_slice = !wall_found;
 	// calculation has ended if either wall was not found after casting a ray or in the last state
-	assign end_calc = !wall_found || perform_project_to_screen;
+	assign end_calc = !wall_found || perform_project_to_screen_1;
 	
 	control_find_slice_size FSM (
 	
@@ -92,9 +98,11 @@ module find_slice_size
 		.find_ray_grid_intersections(find_ray_grid_intersections),
 		.find_distances_0(find_distances_0),
 		.find_distances_1(find_distances_1),
+		.find_distances_2(find_distances_2),
 		.find_closer_distance(find_closer_distance),
 		.perform_reverse_fishbowl(perform_reverse_fishbowl),
-		.perform_project_to_screen(perform_project_to_screen)
+		.perform_project_to_screen_0(perform_project_to_screen_0),
+		.perform_project_to_screen_1(perform_project_to_screen_1)
 	
 	);
 	
@@ -114,9 +122,11 @@ module find_slice_size
 		.find_ray_grid_intersections(find_ray_grid_intersections),
 		.find_distances_0(find_distances_0),
 		.find_distances_1(find_distances_1),
+		.find_distances_2(find_distances_2),
 		.find_closer_distance(find_closer_distance),
 		.perform_reverse_fishbowl(perform_reverse_fishbowl),
-		.perform_project_to_screen(perform_project_to_screen),
+		.perform_project_to_screen_0(perform_project_to_screen_0),
+		.perform_project_to_screen_1(perform_project_to_screen_1),
 		
 		// ------------------------------------ data input and output --------------------------------------
 		
@@ -126,7 +136,7 @@ module find_slice_size
 		.angle_Y(angle_Y),
 		.column_count(column_count),
 		
-		.proj_slice_size(slice_size),
+		.slice_size(slice_size),
 		
 		// ----------------------------------------- outputs to FSM -----------------------------------------
 		// ------------------------- tell the FSM that ray-casting is complete ------------------------------
@@ -142,8 +152,8 @@ module control_find_slice_size (input clock, resetn, begin_calc, end_calc_raycas
 										  output reg find_angle_offset_0, find_angle_offset_1, find_alpha_beta_0, 
 										  find_alpha_beta_1, find_alpha_beta_2, find_alpha_beta_3,
 										  find_ray_grid_intersections, find_distances_0, 
-										  find_distances_1, find_closer_distance,
-										  perform_reverse_fishbowl, perform_project_to_screen);
+										  find_distances_1, find_distances_2, find_closer_distance,
+										  perform_reverse_fishbowl, perform_project_to_screen_0, perform_project_to_screen_1);
 	
 	reg [3:0] current_state, next_state;
 	
@@ -157,9 +167,11 @@ module control_find_slice_size (input clock, resetn, begin_calc, end_calc_raycas
 				  S_RAYCAST = 4'd7,
 				  S_FIND_DISTANCES_0 = 4'd8,
 				  S_FIND_DISTANCES_1 = 4'd9,
-				  S_FIND_CLOSER_DIST = 4'd10,
-				  S_REVERSE_FISHBOWL = 4'd11,
-				  S_PROJECT_TO_SCREEN = 4'd12;
+				  S_FIND_DISTANCES_2 = 4'd10,
+				  S_FIND_CLOSER_DIST = 4'd11,
+				  S_REVERSE_FISHBOWL = 4'd12,
+				  S_PROJECT_TO_SCREEN_0 = 4'd13,
+				  S_PROJECT_TO_SCREEN_1 = 4'd14;
 				  
 	// ----------------------------------------- state table  ------------------------------------------------
 	
@@ -184,11 +196,13 @@ module control_find_slice_size (input clock, resetn, begin_calc, end_calc_raycas
 				else
 					next_state = S_RAYCAST; // remain in this state until ray casts complete
 			end
-			S_FIND_DISTANCES_0: next_state = S_FIND_DISTANCES_1; // provide 2 states to compute distances from horizontal and vertical raycasts
-			S_FIND_DISTANCES_1: next_state = S_FIND_CLOSER_DIST;
+			S_FIND_DISTANCES_0: next_state = S_FIND_DISTANCES_1; // provide 3 states to compute distances from horizontal and vertical raycasts
+			S_FIND_DISTANCES_1: next_state = S_FIND_DISTANCES_2;
+			S_FIND_DISTANCES_2: next_state = S_FIND_CLOSER_DIST;
 			S_FIND_CLOSER_DIST: next_state = S_REVERSE_FISHBOWL; // provide 1 state to find lesser of 2 distances
-			S_REVERSE_FISHBOWL: next_state = S_PROJECT_TO_SCREEN; // provide 1 state to reverse fishbowl effect
-			S_PROJECT_TO_SCREEN: next_state = S_WAIT;
+			S_REVERSE_FISHBOWL: next_state = S_PROJECT_TO_SCREEN_0; // provide 1 state to reverse fishbowl effect
+			S_PROJECT_TO_SCREEN_0: next_state = S_PROJECT_TO_SCREEN_1;
+			S_PROJECT_TO_SCREEN_1: next_state = S_WAIT;
 			default: next_state = S_WAIT;
 		endcase
 	
@@ -209,9 +223,11 @@ module control_find_slice_size (input clock, resetn, begin_calc, end_calc_raycas
 		find_ray_grid_intersections = 1'b0;
 		find_distances_0 = 1'b0;
 		find_distances_1 = 1'b0;
+		find_distances_2 = 1'b0;
 		find_closer_distance = 1'b0;
 		perform_reverse_fishbowl = 1'b0;
-		perform_project_to_screen = 1'b0;
+		perform_project_to_screen_0 = 1'b0;
+		perform_project_to_screen_1 = 1'b0;
 		
 		case(current_state)
 			S_FIND_ANGLE_OFFSET_0: find_angle_offset_0 = 1'b1;
@@ -223,9 +239,11 @@ module control_find_slice_size (input clock, resetn, begin_calc, end_calc_raycas
 			S_RAYCAST: find_ray_grid_intersections = 1'b1;
 			S_FIND_DISTANCES_0: find_distances_0 = 1'b1;
 			S_FIND_DISTANCES_1: find_distances_1 = 1'b1;
+			S_FIND_DISTANCES_2: find_distances_2 = 1'b1;
 			S_FIND_CLOSER_DIST: find_closer_distance = 1'b1;
 			S_REVERSE_FISHBOWL: perform_reverse_fishbowl = 1'b1;
-			S_PROJECT_TO_SCREEN: perform_project_to_screen = 1'b1;
+			S_PROJECT_TO_SCREEN_0: perform_project_to_screen_0 = 1'b1;
+			S_PROJECT_TO_SCREEN_1: perform_project_to_screen_1 = 1'b1;
 		endcase
 		
 	end // control_signals
@@ -244,14 +262,17 @@ endmodule
 
 module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_angle_offset_1, find_alpha_beta_0, 
 										  find_alpha_beta_1, find_alpha_beta_2, find_alpha_beta_3, find_ray_grid_intersections, 
-										  find_distances_0, find_distances_1, 
-										  find_closer_distance, perform_reverse_fishbowl, perform_project_to_screen,
+										  find_distances_0, find_distances_1, find_distances_2,
+										  find_closer_distance, perform_reverse_fishbowl, perform_project_to_screen_0,
+										  perform_project_to_screen_1,
 										  input signed [12:0] playerX, playerY, input signed [9:0] angle_X, angle_Y,
 										  input [7:0] column_count,
-										  output [6:0] proj_slice_size, output end_calc_raycast, wall_found);
+										  output reg [6:0] slice_size, output end_calc_raycast, wall_found);
 	
 	// FOV is 60 degrees, half_FOV = 30
 	localparam half_FOV = 30;
+	
+	localparam projection_scaling_factor = 2000;
 	
 	// Cast a ray at every 0.375 degrees
 	localparam angle_between_rays_X = 0,
@@ -289,6 +310,9 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 	
 	// this is the closer distance of distance_horiz and distance_vert. If only one was found, that is closer_dist
 	reg signed [20:0] closer_dist;
+	
+	// this is the projected slice size. It should be limited to max slice size (120)
+	reg signed [20:0] projected_slice_size;
 	
 	// if we've found a wall, we can go ahead to find distances and project it to the screen, else we must quit
 	assign wall_found = (!bounds_reached_horiz && end_raycast_horiz) || (!bounds_reached_vert && end_raycast_vert);
@@ -356,12 +380,15 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 	// ------------------------------------------ compute distances ---------------------------------------------------
 	
 	wire signed [20:0] distance_horiz_computed;
+	wire signed [12:0] playerX_horiz_diff;
+	assign playerX_horiz_diff = playerX - wallX_horiz;
+	reg signed [12:0] abs_playerX_horiz_diff;
 	
 	int_fixed_point_div_int distance_horiz_calc (
 		
 		// performs division: distance_horiz = (playerX - wallX_horiz) / cos(alpha)
 		
-		.int_in({8'b0, playerX - wallX_horiz}),
+		.int_in({8'b0, abs_playerX_horiz_diff}),
 		.fixed_X({8'b0, cos_alpha_X}),
 		.fixed_Y(cos_alpha_Y),
 		
@@ -369,16 +396,36 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 	);
 	
 	wire signed [20:0] distance_vert_computed;
+	wire signed [12:0] playerX_vert_diff;
+	assign playerX_vert_diff = playerX - wallX_vert;
+	reg signed [12:0] abs_playerX_vert_diff;
 	
 	int_fixed_point_div_int distance_vert_calc (
 		
 		// performs division: distance_vert = (playerX - wallX_vert) / cos(alpha)
 		
-		.int_in({8'b0, playerX - wallX_vert}),
+		.int_in({8'b0, abs_playerX_vert_diff}),
 		.fixed_X({8'b0, cos_alpha_X}),
 		.fixed_Y(cos_alpha_Y),
 		
 		.int_out(distance_vert_computed)
+	);
+	
+	// -------------------------------------- perform reverse fishbowl ------------------------------------------------
+	
+	// this is the final distance value, undistorted by reversing the fishbowl effect
+	wire signed [20:0] final_dist;
+	
+	int_fixed_point_mult_int reverse_fishbowl_calc (
+	
+		// performs calculation: final_dist = closer_dist * cos(beta)
+	
+		.int_in(closer_dist),
+		.fixed_X({8'b0, cos_beta_X}),
+		.fixed_Y(cos_beta_Y),
+		
+		.int_out(final_dist)
+	
 	);
 	
 	// ---------------------------------------- datapath output table  ------------------------------------------------
@@ -404,6 +451,9 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 			distance_horiz <= 0;
 			distance_vert <= 0;
 			closer_dist <= 0;
+			abs_playerX_horiz_diff <= 0;
+			abs_playerX_vert_diff <= 0;
+			projected_slice_size <= 0;
 		end
 		else begin
 			
@@ -504,12 +554,26 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 			// find_ray_grid_intersections output controlled by raycast modules above
 			
 			if (find_distances_0) begin
+				// take the abs of (playerX - wallX_horiz) and (playerX - wallX_vert) respectively
+				
+				if (playerX_horiz_diff < 0)
+					abs_playerX_horiz_diff <= -playerX_horiz_diff;
+				else
+					abs_playerX_horiz_diff <= playerX_horiz_diff;
+					
+				if (playerX_vert_diff < 0)
+					abs_playerX_vert_diff <= -playerX_vert_diff;
+				else
+					abs_playerX_vert_diff <= playerX_vert_diff;
+			end
+			
+			if (find_distances_1) begin
 				// save computed values into regs
 				distance_horiz <= distance_horiz_computed;
 				distance_vert <= distance_vert_computed;
 			end
 			
-			if (find_distances_1) begin
+			if (find_distances_2) begin
 				// take abs of distance_horiz and distance_vert
 				if (distance_horiz < 0) distance_horiz <= -distance_horiz;
 				if (distance_vert < 0) distance_vert <= -distance_vert;
@@ -522,6 +586,20 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 					closer_dist <= distance_horiz;
 				else
 					closer_dist <= (distance_horiz > distance_vert) ? distance_vert : distance_horiz;
+			end
+			
+			if (perform_project_to_screen_0) begin
+				// apply scaling factor to project this on ths screen
+				projected_slice_size <= projection_scaling_factor / final_dist;
+			end
+			
+			if (perform_project_to_screen_1) begin
+			
+				// limit this to max value for this resolution
+				if (projected_slice_size > 120)
+					slice_size <= 120;
+				else
+					slice_size <= projected_slice_size;
 			end
 			
 		end
