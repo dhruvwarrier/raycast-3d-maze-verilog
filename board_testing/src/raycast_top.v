@@ -1,7 +1,7 @@
-module raycast_top(KEY, LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5);
+module raycast_top(KEY, LEDR, CLOCK_50, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5);
   
     input [3:0] KEY;
-   // input CLOCK_50;
+	 input CLOCK_50;
     output [1:0] LEDR;
     output [6:0] HEX0, HEX1, HEX2, HEX3, HEX4, HEX5;
 
@@ -13,8 +13,8 @@ module raycast_top(KEY, LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5);
 	wire wall_found;
 	wire end_calc;
 	 
-    assign begin_calc = KEY[1];
-    assign resetn = KEY[0];
+    assign begin_calc = ~KEY[1];
+    assign resetn = ~KEY[0];
 
 	find_wall_intersection_horiz u0(
 		.playerX(100),
