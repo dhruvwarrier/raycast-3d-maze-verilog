@@ -169,9 +169,9 @@ module datapath_find_intersection_vert (input clock, resetn,
 	
 	int_fixed_point_mult_int multiplier_offset (
 	
-		// performs fixed point multiplication: offset_proj_Y = X_a * tan(alpha)
+		// performs fixed point multiplication: offset_proj_Y = -X_a * tan(alpha)
 	
-		.int_in(X_a),
+		.int_in(-X_a),
 		.fixed_X(tan_alpha_X),
 		.fixed_Y(tan_alpha_Y),
 		
@@ -211,6 +211,7 @@ module datapath_find_intersection_vert (input clock, resetn,
 		
 			if (reset_datapath) begin
 				checked_first_intersection <= 1'b0;
+				reached_wall <= 1'b0;
 				reached_maze_bounds <= 1'b0;
 				end_wall_checking <= 1'b0;
 				end_bounds_checking <= 1'b0;
@@ -218,9 +219,9 @@ module datapath_find_intersection_vert (input clock, resetn,
 		
 			if (find_first_intersection_0) begin
 				if (alpha_X >= 90 && alpha_X < 270) // ray facing left
-					B_x <= $floor(playerX / 64) * 64 - 1; // subtract 1 to make B part of the grid block to the left of the grid line
+					B_x <= (playerX / 64) * 64 - 1; // subtract 1 to make B part of the grid block to the left of the grid line
 				else if ((alpha_X >= 270 && alpha_X < 360) || (alpha_X >= 0 && alpha_X < 90)) // ray facing right
-					B_x <= $floor(playerX / 64) * 64 + 64; // add 64 to make B_x the X position of the next grid block
+					B_x <= (playerX / 64) * 64 + 64; // add 64 to make B_x the X position of the next grid block
 			end
 			
 			if (find_first_intersection_1) begin
@@ -263,7 +264,7 @@ module datapath_find_intersection_vert (input clock, resetn,
 				if (C_x >= 4096 || C_y >= 4096 || C_x <= 0 || C_y <= 0)
 					reached_maze_bounds <= 1'b1;
 				else
-					grid_address <= 64 * $floor(C_y / 64) + $floor(C_x / 64); // flatten a 2D grid address into a 1D address
+					grid_address <= 64 * (C_y / 64) + (C_x / 64); // flatten a 2D grid address into a 1D address
 				
 				// we're done checking bounds, update the FSM
 				end_bounds_checking <= 1'b1;

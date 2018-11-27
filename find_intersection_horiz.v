@@ -129,17 +129,17 @@ module control_find_intersection (input clock, resetn, begin_calc,
 					find_offset_0, find_offset_1, find_next_intersection, 
 					convert_to_grid_coords, check_for_wall_0, check_for_wall_1);
 		
-	reg [2:0] current_state, next_state;
+	reg [3:0] current_state, next_state;
 	
-	localparam S_WAIT = 3'd0,
-				  S_FIND_FIRST_0 = 3'd1,
-				  S_FIND_FIRST_1 = 3'd2,
-				  S_FIND_OFFSET_0 = 3'd3,
-				  S_FIND_OFFSET_1 = 3'd4,
-				  S_FIND_NEXT = 3'd5,
-				  S_CONVERT_TO_GRID = 3'd6,
-				  S_CHECK_WALL_0 = 3'd7,
-				  S_CHECK_WALL_1 = 3'd8;
+	localparam S_WAIT = 4'd0,
+				  S_FIND_FIRST_0 = 4'd1,
+				  S_FIND_FIRST_1 = 4'd2,
+				  S_FIND_OFFSET_0 = 4'd3,
+				  S_FIND_OFFSET_1 = 4'd4,
+				  S_FIND_NEXT = 4'd5,
+				  S_CONVERT_TO_GRID = 4'd6,
+				  S_CHECK_WALL_0 = 4'd7,
+				  S_CHECK_WALL_1 = 4'd8;
 				  
 	// ----------------------------------------- state table  ------------------------------------------------
 	
@@ -163,7 +163,7 @@ module control_find_intersection (input clock, resetn, begin_calc,
 			// check with the grid register for a wall, if found go back to S_FIND_NEXT
 			S_CHECK_WALL_0: next_state = S_CHECK_WALL_1; // provide 2 states to check for wall
 			// retreive wall_found from level_data grid, then check whether reached in the next state
-			S_CHECK_WALL_1: next_state = (reached_wall && end_wall_checking) ? S_WAIT : S_FIND_NEXT;
+			S_CHECK_WALL_1: next_state = reached_wall ? S_WAIT : S_FIND_NEXT;
 			default: next_state = S_WAIT;
 		endcase
 				
@@ -257,9 +257,9 @@ module datapath_find_intersection_horiz (input clock, resetn,
 	
 	int_fixed_point_div_int divider_offset (
 		
-		// performs fixed point division: offset_proj_X = Y_a / tan(alpha)
+		// performs fixed point division: offset_proj_X = -Y_a / tan(alpha)
 	
-		.int_in(Y_a),
+		.int_in(-Y_a),
 		.fixed_X(tan_alpha_X),
 		.fixed_Y(tan_alpha_Y),
 		
@@ -299,6 +299,7 @@ module datapath_find_intersection_horiz (input clock, resetn,
 			if (reset_datapath) begin
 				// reset all the bools used in the datapath
 				checked_first_intersection <= 1'b0;
+				reached_wall <= 1'b0;
 				reached_maze_bounds <= 1'b0;
 				end_wall_checking <= 1'b0;
 				end_bounds_checking <= 1'b0;
@@ -306,9 +307,9 @@ module datapath_find_intersection_horiz (input clock, resetn,
 		
 			if (find_first_intersection_0) begin
 				if (alpha_X >= 0 && alpha_X < 180) // ray facing up
-					A_y <= $floor(playerY / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
+					A_y <= (playerY / 64) * 64 - 1; // subtract 1 to make A part of the grid block above the grid line
 				else if (alpha_X >= 180 && alpha_X < 360) // ray facing down
-					A_y <= $floor(playerY / 64) * 64 + 64; // add 64 to make A_y the Y position of the next grid block
+					A_y <= (playerY / 64) * 64 + 64; // add 64 to make A_y the Y position of the next grid block
 			end
 			
 			if (find_first_intersection_1) begin
@@ -351,7 +352,7 @@ module datapath_find_intersection_horiz (input clock, resetn,
 				if (C_x >= 4096 || C_y >= 4096 || C_x <= 0 || C_y <= 0)
 					reached_maze_bounds <= 1'b1;
 				else
-					grid_address <= 64 * $floor(C_y / 64) + $floor(C_x / 64); // flatten a 2D grid address into a 1D address
+					grid_address <= 64 * (C_y / 64) + (C_x / 64); // flatten a 2D grid address into a 1D address
 				
 				// we're done checking bounds, update the FSM
 				end_bounds_checking <= 1'b1;
