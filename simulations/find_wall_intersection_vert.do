@@ -46,6 +46,12 @@ force {convert_to_grid_coords} 1
 run 20ns
 force {convert_to_grid_coords} 0
 
-force {check_for_wall} 1
+force {check_for_wall_0} 1
 run 20ns
-force {check_for_wall} 0
+force {check_for_wall_0} 0
+
+force {check_for_wall_1} 1
+run 20ns
+force {check_for_wall_1} 0
+
+run 40ns
