@@ -15,8 +15,8 @@ force {resetn} 1
 
 force {playerX} 000001100100
 force {playerY} 000001100100
-force {alpha_X} 10#30
-force {alpha_Y} 10#375
+force {alpha_X} 10#355
+force {alpha_Y} 10#875
 
 force {reset_datapath} 1
 run 20ns

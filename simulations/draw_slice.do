@@ -43,3 +43,13 @@ force {find_alpha_beta_1} 0
 force {find_alpha_beta_2} 1
 run 20ns
 force {find_alpha_beta_2} 0
+
+force {find_alpha_beta_3} 1
+run 20ns
+force {find_alpha_beta_3} 0
+
+force {find_ray_grid_intersections} 1
+run 20ns
+force {find_ray_grid_intersections} 0
+
+run 7000ns
