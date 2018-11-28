@@ -1,11 +1,11 @@
 vlib work
-vlog fixed_point_arithmetic.v
-vlog LUTcos.v
-vlog LUTtan.v
-vlog find_intersection_horiz.v
-vlog find_intersection_vert.v
-vlog level_data.v
-vlog find_slice_size.v
+vlog ../fixed_point_arithmetic.v
+vlog ../trig_LUTs/LUTcos.v
+vlog ../trig_LUTs/LUTtan.v
+vlog ../find_intersection_horiz.v
+vlog ../find_intersection_vert.v
+vlog ../level_data.v
+vlog ../find_slice_size.v
 
 vsim find_slice_size
 log {/*}
@@ -25,7 +25,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#5
 
@@ -38,7 +38,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#10
 
@@ -51,7 +51,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#15
 
@@ -64,7 +64,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#20
 
@@ -77,7 +77,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#25
 
@@ -90,7 +90,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#30
 
@@ -103,7 +103,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#35
 
@@ -116,20 +116,20 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#40
 
 run 1000ns
 
-#column #45
+#column #90
 force {begin_calc} 1
 run 20ns
 
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#45
 
@@ -142,7 +142,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#50
 
@@ -155,7 +155,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#55
 
@@ -168,7 +168,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#60
 
@@ -181,7 +181,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#65
 
@@ -194,7 +194,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#70
 
@@ -207,7 +207,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#75
 
@@ -220,7 +220,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#80
 
@@ -233,7 +233,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#85
 
@@ -246,7 +246,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#90
 
@@ -259,7 +259,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#95
 
@@ -272,7 +272,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#100
 
@@ -285,7 +285,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#105
 
@@ -298,7 +298,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#110
 
@@ -311,7 +311,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#115
 
@@ -324,7 +324,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#120
 
@@ -337,7 +337,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#125
 
@@ -350,7 +350,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#130
 
@@ -364,7 +364,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#135
 
@@ -377,20 +377,20 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#140
 
 run 1000ns
 
-#column #145
+#column #190
 force {begin_calc} 1
 run 20ns
 
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#145
 
@@ -403,7 +403,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#150
 
@@ -416,7 +416,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#155
 
@@ -429,7 +429,7 @@ run 20ns
 force {begin_calc} 0
 force {playerX} 10#100
 force {playerY} 10#100
-force {angle_X} 10#45
+force {angle_X} 10#90
 force {angle_Y} 10#375
 force {column_count} 10#160
 

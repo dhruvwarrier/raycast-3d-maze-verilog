@@ -1,9 +1,8 @@
 
-module fill
+module VGA_out
 	(
 		CLOCK_50,						//	On Board 50 MHz
 		SW,                        // On Board switches
-		KEY,							// On Board Keys
 		// The ports below are for the VGA output.  Do not change.
 		VGA_CLK,   						//	VGA Clock
 		VGA_HS,							//	VGA H_SYNC
@@ -17,16 +16,8 @@ module fill
 
 	input			CLOCK_50;				//	50 MHz
 	
-	// KEY[3] is used to load a position value (X or Y) into memory
-	// KEY[2] clears the entire screen to black
-	// KEY[1] plots a square at position (X, Y) with colour specified by SW[9:7]
-	// KEY[0] is the system active low reset (Resetn) which resets the FSM and the registers
-	input	[3:0]	KEY;
-	
-	// SW[9:7] are the input RGB signals, which can represent a total of 8 colours
-	// SW[6:0] are used to input X and Y locations one after another into memory
-	// locations are 7 bit, can only access 128 columns of the display
-	input [9:0] SW;
+	// SW[1] is active high reset
+	input [1:0] SW;
 	
 	output			VGA_CLK;   				//	VGA Clock
 	output			VGA_HS;					//	VGA H_SYNC
@@ -40,17 +31,7 @@ module fill
 	// ----------------------------------- Input set for VGA_draw_square module ---------------------------------------
 	
 	wire resetn;
-	wire [6:0] pos_in;
-	wire store_pos;
-	wire clear_scr;
-	wire plot;
-	
-	// assigned according to table above
-	assign resetn = KEY[0];
-	assign pos_in = SW[6:0];
-	assign store_pos = ~KEY[3];
-	assign clear_scr = ~KEY[2];
-	assign plot = ~KEY[1];
+	assign resetn = ~SW[1];
 	
 	// ----------------------------------- Output set from VGA_draw_square module --------------------------------------
 	// ----------------------------------- These are inputs to the VGA controller --------------------------------------
@@ -85,10 +66,31 @@ module fill
 		defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
 		defparam VGA.BACKGROUND_IMAGE = "black.mif";
 		
-	// ----------------------------------- Instance of VGA_draw_square module ---------------------------------------
-			
-	// Loads the position values sequentially into memory and generates the position vectors for a 4x4 square
-	// For each position vector, it produces a high plot_enable which writes the pixel to the VGA frame buffer
+	// ----------------------------------- Instance of draw_frame module ---------------------------------------
+	
 	// Signals produced below: x, y, colour and writeEn for the VGA controller
+	
+	wire clock_60hz;
+	
+	draw_frame draw_frame(
+		
+		.clock50MHz(CLOCK_50),
+		.clock60Hz(clock_60hz),
+		.resetn(resetn),
+		
+		.playerX(100),
+		.playerY(100),
+		.angle_X(45),
+		.angle_Y(375),
+		.slice_color(3'b100),
+		
+		.color_out(colour),
+		.X(x),
+		.Y(y),
+		.draw_enable(writeEn)
+	
+	);
+	
+	rate_divider prod_60Hz (.clkin(CLOCK_50),.clkout(clock_60hz));
 	
 endmodule
