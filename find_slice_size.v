@@ -506,9 +506,15 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 			
 				// perform fixed point subtraction: beta = angle_offset - half_FOV
 				
+				if (angle_offset_Y > 0) begin
 					if (angle_offset_X < half_FOV) begin
-						beta_X <= (angle_offset_X + 1) - half_FOV;
+						beta_X <= (angle_offset_X +1) - half_FOV;
 						beta_Y <= 1000 - angle_offset_Y;
+						end
+						else begin
+						beta_X <= angle_offset_X - half_FOV;
+						beta_Y <= 1000 - angle_offset_Y;
+						end 
 					end else begin
 						beta_X <= angle_offset_X - half_FOV;
 						beta_Y <= angle_offset_Y;
