@@ -1,7 +1,7 @@
 //assuming clkin will be 50MHz clock
 module rate_divider(input clkin, output reg clkout);
 
-	reg [19:0] counter;
+	reg [20:0] counter;
 
 
 	initial begin
@@ -9,10 +9,10 @@ module rate_divider(input clkin, output reg clkout);
    	  clkout = 0;
 	end
 	
-//count down from 833333 (50M / 60 = 833333)
+	//count down from 833333 (50M / 30 = 1666666)
 	always @(posedge clkin) begin
    		 if (counter == 0) begin
-       			counter <= 833333;
+       			counter <= 1666666;
        	 		clkout <= ~clkout;
    		 end else begin
        			 counter <= counter -1;
