@@ -42,6 +42,9 @@ module draw_frame
 	// tells the FSM that slice size computations are complete for this slice
 	wire compute_size_complete;
 	
+	// tells the FSM to skip attempting to draw this slice
+	wire skip_this_slice;
+	
 	// tells the FSM that drawing of this slice is complete and to compute the next slice
 	wire draw_slice_complete;
 	
@@ -67,6 +70,7 @@ module draw_frame
 		
 		.clear_complete(clear_complete),
 		.compute_size_complete(compute_size_complete),
+		.skip_this_slice(skip_this_slice),
 		.draw_slice_complete(draw_slice_complete),
 		.draw_frame_complete(draw_frame_complete),
 		
@@ -113,6 +117,7 @@ module draw_frame
 		
 		.clear_complete(clear_complete),
 		.compute_size_complete(compute_size_complete),
+		.skip_this_slice(skip_this_slice),
 		.draw_slice_complete(draw_slice_complete),
 		.draw_frame_complete(draw_frame_complete),
 		
@@ -124,7 +129,7 @@ module draw_frame
 endmodule
 
 module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete, compute_size_complete,
-								  draw_slice_complete, draw_frame_complete,
+								  draw_slice_complete, draw_frame_complete, skip_this_slice,
 								  output reg load_player_attr, clear_counter_enable, compute_slice_size,
 								  compute_slice_loc, draw_slice, draw_enable);
 								  
@@ -145,7 +150,11 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 			S_WAIT: next_state = begin_frame_draw ? S_CLEAR_SCR : S_WAIT;
 			S_CLEAR_SCR: next_state = clear_complete ? S_COMPUTE_SLICE_SIZE : S_CLEAR_SCR;
 			S_COMPUTE_SLICE_SIZE: next_state = compute_size_complete ? S_COMPUTE_SLICE_LOC : S_COMPUTE_SLICE_SIZE;
-			S_COMPUTE_SLICE_LOC : next_state = S_DRAW_SLICE; // provide 1 cycle to compute location
+			S_COMPUTE_SLICE_LOC: // provide 1 cycle to compute location
+			begin
+				if (skip_this_slice) next_state = S_COMPUTE_SLICE_SIZE; // start again at the next slice if true
+				else next_state = S_DRAW_SLICE;
+			end
 			S_DRAW_SLICE:
 			begin
 				// tackle possibilities in order of priority
@@ -204,7 +213,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 									input [2:0] color_in,
 									output reg [7:0] X_draw_pos, output reg [6:0] Y_draw_pos, output [2:0] color_out,
 									output reg clear_complete, compute_size_complete, draw_slice_complete, 
-									draw_frame_complete, draw_enable);
+									draw_enable, skip_this_slice, output draw_frame_complete);
 	
 	// screen size in X
 	localparam screen_size_columns = 160;
@@ -237,8 +246,8 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 	
 	// ------------------------------------- draw_slice module instance  ----------------------------------------------
 	
-	// controlled by this module, high when computation is complete
-	reg end_slice_size_computation;
+	// this is registered and checked in the next state (S_COMPUTE_SLICE_LOC)
+	wire skip_this_slice_wire;
 	
 	find_slice_size find_slice_size (
 	
@@ -258,15 +267,13 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		// ---------------------- data outputs + end signal ---------------------------
 		// computed output
 		.slice_size(slice_size),
+		.skip_this_slice(skip_this_slice_wire), // tells the FSM to skip attempting to draw this slice
 		// high when the calculation has ended
-		.end_calc(end_slice_size_computation)
+		.end_calc(compute_size_complete)
 	
 	);
 	
 	// ---------------------------------- VGA_draw_rectangle module instance  -----------------------------------------
-	
-	// controlled by this module, high when drawing has ended
-	reg end_slice_draw;
 	
 	VGA_draw_rectangle VGA_draw_slice(
 	
@@ -288,13 +295,21 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		.X(draw_slice_out_X),
 		.Y(draw_slice_out_Y),
 		// high when the slice has been drawn
-		.end_plot(end_slice_draw)
+		.end_plot(draw_slice_complete)
 		
 		// forget color_out for now, since we don't have to change the color
 
 	);
 	
 	// ---------------------------------------- datapath output table  ------------------------------------------------
+	
+	always @(*)
+	begin
+		if (skip_this_slice_wire) skip_this_slice <= 1'b1; 
+	end
+	
+	// when we've finished drawing all slices, update the FSM
+	assign draw_frame_complete = (column_count == screen_size_columns) ? 1'b1 : 1'b0;
 	
 	always @(posedge clock)
 	begin
@@ -315,15 +330,12 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 				a_Y <= angle_Y;
 				// prepare the column count, which must count from 1 to 160
 				column_count <= 1;
+				skip_this_slice <= 1'b0; // reset this bool
 			end
 			
 			// clear_counter_enable is handled by counter underneath
 			
-			if (compute_slice_size) begin
-				// when compute_size_complete turns high, it moves to the next state, which disables compute_slice_size
-				// and prevents the computation from starting before this state is reached again
-				compute_size_complete <= end_slice_size_computation;
-			end
+			// compute_slice_size handled by find_slice_size module above
 			
 			if (compute_slice_loc) begin
 				 // if this overflows we'll get a max height slice, slice_size must be 120 or smaller
@@ -333,13 +345,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 				column_count <= column_count + 1;
 			end
 			
-			if (draw_slice) begin
-				// when end_slice_draw
-				draw_slice_complete <= end_slice_draw;
-			end
-			
-			if (column_count == screen_size_columns)
-				draw_frame_complete <= 1'b1; // when we've finished drawing all slices, update the FSM
+			// draw_frame handled by VGA_draw_rectangle module above
 			
 		end
 	end
