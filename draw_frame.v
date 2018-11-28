@@ -147,7 +147,7 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 	begin: state_table
 	
 		case(current_state)
-			S_WAIT: next_state = begin_frame_draw ? S_CLEAR_SCR : S_WAIT;
+			S_WAIT: next_state = begin_frame_draw ? S_CLEAR_SCR : S_WAIT; //next_state = S_CLEAR_SCR;
 			S_CLEAR_SCR: next_state = clear_complete ? S_COMPUTE_SLICE_SIZE : S_CLEAR_SCR;
 			S_COMPUTE_SLICE_SIZE: next_state = compute_size_complete ? S_COMPUTE_SLICE_LOC : S_COMPUTE_SLICE_SIZE;
 			S_COMPUTE_SLICE_LOC: // provide 1 cycle to compute location
@@ -212,8 +212,8 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 									input signed [12:0] playerX, playerY, input signed [9:0] angle_X, angle_Y,
 									input [2:0] color_in,
 									output reg [7:0] X_draw_pos, output reg [6:0] Y_draw_pos, output [2:0] color_out,
-									output reg clear_complete, compute_size_complete, draw_slice_complete, 
-									draw_enable, skip_this_slice, output draw_frame_complete);
+									output reg skip_this_slice, output compute_size_complete, clear_complete, 
+									draw_slice_complete, draw_enable, draw_frame_complete);
 	
 	// screen size in X
 	localparam screen_size_columns = 160;
@@ -229,14 +229,14 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 	reg [6:0] clear_counter_out_Y;
 	
 	// computed by draw_slice module
-	reg [6:0] slice_size;
+	wire [6:0] slice_size;
 	
 	// computed in datapath after compute_slice_loc
 	reg [6:0] slice_loc_Y;
 	
 	// holds the generated X and Y positions from the VGA_draw_rectangle module (draw_slice)
-	reg [7:0] draw_slice_out_X;
-	reg [6:0] draw_slice_out_Y;
+	wire [7:0] draw_slice_out_X;
+	wire [6:0] draw_slice_out_Y;
 	
 	// iterates over the columns to draw different slices by casting one ray for each column 
 	reg [7:0] column_count;
@@ -258,10 +258,10 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		.begin_calc(compute_slice_size),
 	
 		// ------------------------------ data inputs ---------------------------------
-		.playerX(Px),
-		.playerY(Py),
-		.angle_X(a_X),
-		.angle_Y(a_Y),
+		.playerX(playerX),
+		.playerY(playerY),
+		.angle_X(angle_X),
+		.angle_Y(angle_Y),
 		.column_count(column_count),
 		
 		// ---------------------- data outputs + end signal ---------------------------
@@ -319,6 +319,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 			Py <= 12'b0;
 			a_X <= 10'b0;
 			a_Y <= 10'b0;
+			column_count <= 0;
 		end
 		else begin
 		
