@@ -25,8 +25,11 @@ module draw_frame
 	// tells the datapath to start counting through positions to clear the screen
 	wire clear_counter_enable;
 	
+	// tells the datapath to reset all the bools required before starting the computation
+	wire compute_slice_size_0;
+	
 	// tells the datapath to compute the size of the slice (integer, 1 to 120)
-	wire compute_slice_size;
+	wire compute_slice_size_1;
 	
 	// tells the datapath to compute the y location of the slice (integer, 0 to 119)
 	wire compute_slice_loc;
@@ -78,7 +81,8 @@ module draw_frame
 		
 		.load_player_attr(load_player_attr),
 		.clear_counter_enable(clear_counter_enable),
-		.compute_slice_size(compute_slice_size),
+		.compute_slice_size_0(compute_slice_size_0),
+		.compute_slice_size_1(compute_slice_size_1),
 		.compute_slice_loc(compute_slice_loc),
 		.draw_slice(draw_slice),
 		
@@ -96,7 +100,8 @@ module draw_frame
 		
 		.load_player_attr(load_player_attr),
 		.clear_counter_enable(clear_counter_enable),
-		.compute_slice_size(compute_slice_size),
+		.compute_slice_size_0(compute_slice_size_0),
+		.compute_slice_size_1(compute_slice_size_1),
 		.compute_slice_loc(compute_slice_loc),
 		.draw_slice(draw_slice),
 		
@@ -130,16 +135,17 @@ endmodule
 
 module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete, compute_size_complete,
 								  draw_slice_complete, draw_frame_complete, skip_this_slice,
-								  output reg load_player_attr, clear_counter_enable, compute_slice_size,
+								  output reg load_player_attr, clear_counter_enable, compute_slice_size_0, compute_slice_size_1,
 								  compute_slice_loc, draw_slice, draw_enable);
 								  
 	reg [2:0] current_state, next_state;
 
 	localparam S_WAIT = 3'd0,
 				  S_CLEAR_SCR = 3'd1,
-				  S_COMPUTE_SLICE_SIZE = 3'd2,
-				  S_COMPUTE_SLICE_LOC = 3'd3,
-				  S_DRAW_SLICE = 3'd4;
+				  S_COMPUTE_SLICE_SIZE_0 = 3'd2,
+				  S_COMPUTE_SLICE_SIZE_1 = 3'd3,
+				  S_COMPUTE_SLICE_LOC = 3'd4,
+				  S_DRAW_SLICE = 3'd5;
 	
 	// ----------------------------------------- state table  ------------------------------------------------
 	
@@ -148,20 +154,22 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 	
 		case(current_state)
 			S_WAIT: next_state = begin_frame_draw ? S_CLEAR_SCR : S_WAIT; //next_state = S_CLEAR_SCR;
-			S_CLEAR_SCR: next_state = clear_complete ? S_COMPUTE_SLICE_SIZE : S_CLEAR_SCR;
-			S_COMPUTE_SLICE_SIZE: next_state = compute_size_complete ? S_COMPUTE_SLICE_LOC : S_COMPUTE_SLICE_SIZE;
+			S_CLEAR_SCR: next_state = clear_complete ? S_COMPUTE_SLICE_SIZE_0 : S_CLEAR_SCR;
+			S_COMPUTE_SLICE_SIZE_0: next_state = S_COMPUTE_SLICE_SIZE_1; // reset all the bools here
+			S_COMPUTE_SLICE_SIZE_1: next_state = compute_size_complete ? S_COMPUTE_SLICE_LOC : S_COMPUTE_SLICE_SIZE_1;
 			S_COMPUTE_SLICE_LOC: // provide 1 cycle to compute location
 			begin
-				if (skip_this_slice) next_state = S_COMPUTE_SLICE_SIZE; // start again at the next slice if true
+				if (skip_this_slice) next_state = S_COMPUTE_SLICE_SIZE_0; // start again at the next slice if true
 				else next_state = S_DRAW_SLICE;
 			end
 			S_DRAW_SLICE:
 			begin
 				// tackle possibilities in order of priority
 				if (draw_frame_complete) next_state = S_WAIT;
-				else if (draw_slice_complete) next_state = S_COMPUTE_SLICE_SIZE;
+				else if (draw_slice_complete) next_state = S_COMPUTE_SLICE_SIZE_0;
 				else next_state = S_DRAW_SLICE; // otherwise stay in this state
 			end
+			
 			default: next_state = S_WAIT;
 		endcase
 		
@@ -176,7 +184,8 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 		// i.e. 0 in all other states except where explicitly set to 1
 		load_player_attr = 1'b0;
 		clear_counter_enable = 1'b0;
-		compute_slice_size = 1'b0;
+		compute_slice_size_0 = 1'b0;
+		compute_slice_size_1 = 1'b0;
 		compute_slice_loc = 1'b0;
 		draw_slice = 1'b0;
 		draw_enable = 1'b0;
@@ -188,7 +197,8 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 				clear_counter_enable = 1'b1;
 				draw_enable = 1'b1; // so we can draw black pixels over the entire screen
 			end
-			S_COMPUTE_SLICE_SIZE: compute_slice_size = 1'b1;
+			S_COMPUTE_SLICE_SIZE_0: compute_slice_size_0 = 1'b1;
+			S_COMPUTE_SLICE_SIZE_1: compute_slice_size_1 = 1'b1;
 			S_COMPUTE_SLICE_LOC: compute_slice_loc = 1'b1;
 			S_DRAW_SLICE: draw_slice = 1'b1; // draw_enable for this is controlled by the datapath's VGA_draw_rectangle
 		endcase
@@ -207,13 +217,13 @@ module control_draw_frame(input clock, resetn, begin_frame_draw, clear_complete,
 	
 endmodule
 
-module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_enable, compute_slice_size,
-									compute_slice_loc, draw_slice,
+module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_enable, compute_slice_size_0,
+									compute_slice_size_1, compute_slice_loc, draw_slice,
 									input signed [12:0] playerX, playerY, input signed [9:0] angle_X, angle_Y,
 									input [2:0] color_in,
 									output reg [7:0] X_draw_pos, output reg [6:0] Y_draw_pos, output [2:0] color_out,
-									output reg skip_this_slice, output compute_size_complete, clear_complete, 
-									draw_slice_complete, draw_enable, draw_frame_complete);
+									output reg skip_this_slice, compute_size_complete, draw_slice_complete, 
+									output clear_complete, draw_enable, draw_frame_complete);
 	
 	// screen size in X
 	localparam screen_size_columns = 160;
@@ -248,6 +258,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 	
 	// this is registered and checked in the next state (S_COMPUTE_SLICE_LOC)
 	wire skip_this_slice_wire;
+	wire compute_size_complete_wire;
 	
 	find_slice_size find_slice_size (
 	
@@ -255,7 +266,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		.resetn(resetn),
 	
 		// begin this calculation when reached S_COMPUTE_SLICE_SIZE
-		.begin_calc(compute_slice_size),
+		.begin_calc(compute_slice_size_1),
 	
 		// ------------------------------ data inputs ---------------------------------
 		.playerX(playerX),
@@ -269,11 +280,13 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		.slice_size(slice_size),
 		.skip_this_slice(skip_this_slice_wire), // tells the FSM to skip attempting to draw this slice
 		// high when the calculation has ended
-		.end_calc(compute_size_complete)
+		.end_calc(compute_size_complete_wire)
 	
 	);
 	
 	// ---------------------------------- VGA_draw_rectangle module instance  -----------------------------------------
+	
+	wire draw_slice_complete_wire;
 	
 	VGA_draw_rectangle VGA_draw_slice(
 	
@@ -295,7 +308,7 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		.X(draw_slice_out_X),
 		.Y(draw_slice_out_Y),
 		// high when the slice has been drawn
-		.end_plot(draw_slice_complete)
+		.end_plot(draw_slice_complete_wire)
 		
 		// forget color_out for now, since we don't have to change the color
 
@@ -305,7 +318,15 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 	
 	always @(*)
 	begin
-		if (skip_this_slice_wire) skip_this_slice <= 1'b1; 
+		if (skip_this_slice_wire) skip_this_slice <= 1'b1;
+		if (compute_size_complete_wire) compute_size_complete = 1'b1;
+		if (draw_slice_complete_wire) draw_slice_complete <= 1'b1;
+		if (compute_slice_size_0) begin
+			// reset these bools before computing the next slice
+			skip_this_slice <= 1'b0;
+			compute_size_complete <= 1'b0;
+			draw_slice_complete <= 1'b0;
+		end
 	end
 	
 	// when we've finished drawing all slices, update the FSM
@@ -331,12 +352,12 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 				a_Y <= angle_Y;
 				// prepare the column count, which must count from 1 to 160
 				column_count <= 1;
-				skip_this_slice <= 1'b0; // reset this bool
+				
 			end
 			
 			// clear_counter_enable is handled by counter underneath
 			
-			// compute_slice_size handled by find_slice_size module above
+			// compute_slice_size_1 handled by find_slice_size module above
 			
 			if (compute_slice_loc) begin
 				 // if this overflows we'll get a max height slice, slice_size must be 120 or smaller
