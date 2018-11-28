@@ -3,6 +3,7 @@ module VGA_out
 	(
 		CLOCK_50,						//	On Board 50 MHz
 		SW,                        // On Board switches
+		KEY,
 		// The ports below are for the VGA output.  Do not change.
 		VGA_CLK,   						//	VGA Clock
 		VGA_HS,							//	VGA H_SYNC
@@ -17,7 +18,11 @@ module VGA_out
 	input			CLOCK_50;				//	50 MHz
 	
 	// SW[1] is active high reset
-	input [1:0] SW;
+	// SW[9] resets the player position and angle
+	input [9:0] SW;
+	
+	// KEY[3] goes left, KEY[2] goes right
+	input [3:0] KEY;
 	
 	output			VGA_CLK;   				//	VGA Clock
 	output			VGA_HS;					//	VGA H_SYNC
@@ -70,18 +75,21 @@ module VGA_out
 	
 	// Signals produced below: x, y, colour and writeEn for the VGA controller
 	
-	wire clock_60hz;
+	wire clock_30hz;
+	
+	wire signed [12:0] playerX, playerY;
+	wire signed [9:0] angle_X, angle_Y;
 	
 	draw_frame draw_frame(
 		
 		.clock50MHz(CLOCK_50),
-		.clock60Hz(clock_60hz),
+		.clock60Hz(clock_30hz),
 		.resetn(resetn),
 		
-		.playerX(100),
-		.playerY(100),
-		.angle_X(45),
-		.angle_Y(375),
+		.playerX(playerX),
+		.playerY(playerY),
+		.angle_X(angle_X),
+		.angle_Y(angle_Y),
 		.slice_color(3'b100),
 		
 		.color_out(colour),
@@ -91,6 +99,19 @@ module VGA_out
 	
 	);
 	
-	rate_divider prod_60Hz (.clkin(CLOCK_50),.clkout(clock_60hz));
+	input_control input_control(
+		.clock(CLOCK_50),
+		.resetn(SW[9]),
+		
+		.rotate_left(~KEY[3]),
+		.rotate_right(~KEY[2]),
+		
+		.playerX(playerX),
+		.playerY(playerY),
+		.angle_X(angle_X),
+		.angle_Y(angle_Y)
+	);
+	
+	rate_divider prod_30Hz (.clkin(CLOCK_50),.clkout(clock_30hz));
 	
 endmodule
