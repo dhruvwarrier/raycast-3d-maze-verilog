@@ -70,9 +70,9 @@ module find_slice_size
 	// ------------------------------------------ Higher-level module --------------------------------------------------
 	
 	// skip this slice is no wall was found after casting a ray
-	assign skip_this_slice = !wall_found;
+	assign skip_this_slice = !wall_found && end_calc_raycast;
 	// calculation has ended if either wall was not found after casting a ray or in the last state
-	assign end_calc = !wall_found || perform_project_to_screen_1;
+	assign end_calc = (!wall_found && end_calc_raycast) || perform_project_to_screen_1;
 	
 	control_find_slice_size FSM (
 	
@@ -507,18 +507,19 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 				// perform fixed point subtraction: beta = angle_offset - half_FOV
 				
 				if (angle_offset_Y > 0) begin
+				
 					if (angle_offset_X < half_FOV) begin
-						beta_X <= (angle_offset_X +1) - half_FOV;
-						beta_Y <= 1000 - angle_offset_Y;
-						end
-						else begin
-						beta_X <= angle_offset_X - half_FOV;
-						beta_Y <= 1000 - angle_offset_Y;
-						end 
+							beta_X <= (angle_offset_X +1) - half_FOV;
+							beta_Y <= 1000 - angle_offset_Y;
 					end else begin
+							beta_X <= angle_offset_X - half_FOV;
+							beta_Y <= 1000 - angle_offset_Y;
+					end 
+					
+				end else begin
 						beta_X <= angle_offset_X - half_FOV;
 						beta_Y <= angle_offset_Y;
-					end
+				end
 				
 			end
 			
