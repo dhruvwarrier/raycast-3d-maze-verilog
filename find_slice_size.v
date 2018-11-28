@@ -438,6 +438,14 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 		if (end_raycast_vert_wire) end_raycast_vert <= 1'b1;
 		if (bounds_reached_horiz_wire) bounds_reached_horiz <= 1'b1;
 		if (bounds_reached_vert_wire) bounds_reached_vert <= 1'b1;
+		
+		if (find_alpha_beta_3) begin
+			// before the next state these bools must be 0, since they are checked after find_ray_grid_intersections
+			end_raycast_horiz <= 1'b0;
+			end_raycast_vert <= 1'b0;
+			bounds_reached_horiz <= 1'b0;
+			bounds_reached_vert <= 1'b0;
+		end
 	end
 	
 	always @(posedge clock)
@@ -461,7 +469,7 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 			
 				// angle_between_rays_X is 0, so simply overflow from the right decimal point
 				// eg. 100 * 375 / 1000 = 3.75 floored to 3
-				angle_offset_X <= $floor((column_count * angle_between_rays_Y) / 1000);
+				angle_offset_X <= ((column_count * angle_between_rays_Y) / 1000);
 			end
 			
 			if (find_angle_offset_1) begin
@@ -545,11 +553,6 @@ module datapath_find_slice_size (input clock, resetn, find_angle_offset_0, find_
 					// if alpha is greater than 360 bring it down
 					alpha_X <= alpha_X - 360;
 					
-				// before the next state these bools must be 0, since they are checked after find_ray_grid_intersections
-				end_raycast_horiz <= 1'b0;
-				end_raycast_vert <= 1'b0;
-				bounds_reached_horiz <= 1'b0;
-				bounds_reached_vert <= 1'b0;
 			end
 			
 			// find_ray_grid_intersections output controlled by raycast modules above
