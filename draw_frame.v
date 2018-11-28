@@ -269,10 +269,10 @@ module datapath_draw_frame(input clock, resetn, load_player_attr, clear_counter_
 		.begin_calc(compute_slice_size_1),
 	
 		// ------------------------------ data inputs ---------------------------------
-		.playerX(playerX),
-		.playerY(playerY),
-		.angle_X(angle_X),
-		.angle_Y(angle_Y),
+		.playerX(Px),
+		.playerY(Py),
+		.angle_X(a_X),
+		.angle_Y(a_Y),
 		.column_count(column_count),
 		
 		// ---------------------- data outputs + end signal ---------------------------
