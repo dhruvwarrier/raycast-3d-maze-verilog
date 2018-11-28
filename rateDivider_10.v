@@ -1,5 +1,5 @@
 //assuming clkin will be 50MHz clock
-module rate_divider(input clkin, output reg clkout);
+module rate_divider_10(input clkin, output reg clkout);
 
 	reg [22:0] counter;
 
